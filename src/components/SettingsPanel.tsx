@@ -1,24 +1,33 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent, ReactNode } from 'react'
 
+import { BACKGROUND_PRESETS, resolveBackground, totalImageChars } from '../lib/background'
 import { todayKey } from '../lib/date'
 import { buildProgressCard } from '../lib/progressCard'
 import { clampValue, stepValue } from '../lib/stepper'
 import {
+  CARD_OPACITY_MAX,
+  CARD_OPACITY_MIN,
   createDefaultData,
   looksLikeAppData,
+  MAX_BACKGROUND_CHARS,
+  MAX_BACKGROUND_IMAGES,
   normalizeData,
   type AppData,
+  type BackgroundSettings,
   type Settings,
 } from '../lib/storage'
+import { applyCardAppearance } from '../utils/appearance'
 import { copyText } from '../utils/clipboard'
+import { compressImage } from '../utils/image'
 import ConfirmDialog from './ConfirmDialog'
 
 type SettingsPanelProps = {
   open: boolean
   onClose: () => void
   data: AppData
-  update: (updater: (prev: AppData) => AppData) => void
+  /** 返回是否写入成功 —— 背景图可能撑爆 localStorage，需要据此提示用户 */
+  update: (updater: (prev: AppData) => AppData) => boolean
 }
 
 const STEP_BUTTON =
@@ -230,6 +239,12 @@ export default function SettingsPanel({
   const [cardFallback, setCardFallback] = useState<string | null>(null)
 
   const fileRef = useRef<HTMLInputElement>(null)
+  const bgFileRef = useRef<HTMLInputElement>(null)
+  /** 正在压缩图片 */
+  const [bgBusy, setBgBusy] = useState(false)
+  /** 拖动不透明度滑块时的临时值（松手后才落盘） */
+  const [opacityPreview, setOpacityPreview] = useState<number | null>(null)
+  const opacityTimer = useRef<number | null>(null)
   const lastDestructiveAt = useRef(0)
 
   // 提示条自动消失
@@ -238,6 +253,13 @@ export default function SettingsPanel({
     const timer = window.setTimeout(() => setNotice(null), NOTICE_MS)
     return () => window.clearTimeout(timer)
   }, [notice])
+
+  // 卸载时清掉还没落盘的滑块定时器
+  useEffect(() => {
+    return () => {
+      if (opacityTimer.current !== null) window.clearTimeout(opacityTimer.current)
+    }
+  }, [])
 
   /** 破坏性操作防抖：短时间内重复触发只真正执行一次，避免连点把数据搞坏 */
   function runDestructive(action: () => void) {
@@ -249,6 +271,124 @@ export default function SettingsPanel({
 
   function patchSettings(patch: Partial<Settings>) {
     update((prev) => ({ ...prev, settings: { ...prev.settings, ...patch } }))
+  }
+
+  /* ---------------- 背景 ---------------- */
+
+  const background = settings.background
+  const bgUsedChars = totalImageChars(background.images)
+  /** 今天实际显示的那个背景（开了每日随机的话就是随机结果） */
+  const bgToday = resolveBackground(background, todayKey())
+  const bgFull = background.images.length >= MAX_BACKGROUND_IMAGES
+  /** 当前高亮的图片下标（开了每日随机时就是今天随机到的那张） */
+  const bgSelectedIndex =
+    bgToday.image?.index ??
+    Math.min(Math.max(0, background.imageIndex), Math.max(0, background.images.length - 1))
+  /** 滑块当前显示的值：拖动时用临时值，否则用已保存的值 */
+  const opacityValue = opacityPreview ?? background.cardOpacity
+
+  function patchBackground(patch: Partial<BackgroundSettings>) {
+    patchSettings({ background: { ...background, ...patch } })
+  }
+
+  /**
+   * 拖动时：立刻改 CSS 变量实时预览，但**不写 localStorage**。
+   * 背景图动辄上百万字符，每帧都序列化 + 写盘会把拖动卡死，
+   * 所以停手 220ms 后才真正落盘。
+   */
+  function handleOpacityChange(value: number) {
+    setOpacityPreview(value)
+    applyCardAppearance(value)
+
+    if (opacityTimer.current !== null) window.clearTimeout(opacityTimer.current)
+    opacityTimer.current = window.setTimeout(() => {
+      opacityTimer.current = null
+      setOpacityPreview(null)
+      patchBackground({ cardOpacity: value })
+    }, 220)
+  }
+
+  async function handleBackgroundFiles(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? [])
+    event.target.value = '' // 允许连续两次选同一个文件
+    if (files.length === 0) return
+
+    const room = MAX_BACKGROUND_IMAGES - background.images.length
+    if (room <= 0) {
+      setNotice(`最多只能存 ${MAX_BACKGROUND_IMAGES} 张图片`)
+      return
+    }
+
+    const picked = files.slice(0, room)
+    if (files.length > room) {
+      setNotice(`最多 ${MAX_BACKGROUND_IMAGES} 张，这次只加了前 ${room} 张`)
+    }
+
+    setBgBusy(true)
+    const next = [...background.images]
+    let chars = bgUsedChars
+    let failed = false
+
+    for (const file of picked) {
+      try {
+        const dataUrl = await compressImage(file)
+        if (chars + dataUrl.length > MAX_BACKGROUND_CHARS) {
+          setNotice('存储空间不够了，先删掉一两张再加')
+          break
+        }
+        next.push(dataUrl)
+        chars += dataUrl.length
+      } catch {
+        failed = true
+      }
+    }
+    setBgBusy(false)
+
+    if (next.length === background.images.length) {
+      if (failed) setNotice('有图片读取失败，换一张试试')
+      return
+    }
+
+    const added = next.length - background.images.length
+    const ok = update((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        background: {
+          ...prev.settings.background,
+          active: 'image',
+          images: next,
+          imageIndex: next.length - 1,
+        },
+      },
+    }))
+
+    setNotice(ok ? `已添加 ${added} 张背景图` : '保存失败：浏览器存储空间不足')
+  }
+
+  /** 手动指定某一张，就顺手关掉每日随机 —— 「我就要这张」 */
+  function selectBackgroundImage(index: number) {
+    patchBackground({ active: 'image', imageIndex: index, dailyRandom: false })
+  }
+
+  function deleteBackgroundImage() {
+    const next = background.images.filter((_, i) => i !== bgSelectedIndex)
+
+    const ok = update((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        background: {
+          ...prev.settings.background,
+          images: next,
+          imageIndex: Math.min(bgSelectedIndex, Math.max(0, next.length - 1)),
+          // 一张都不剩了就只能回到内置渐变
+          active: next.length > 0 ? prev.settings.background.active : 'preset',
+        },
+      },
+    }))
+
+    setNotice(ok ? '已删除这张背景图' : '删除失败，存储空间异常')
   }
 
   /* ---------------- 自定义语录 ---------------- */
@@ -341,7 +481,7 @@ export default function SettingsPanel({
         aria-modal="true"
         aria-label="设置"
         className={`fixed inset-y-0 right-0 z-50 flex w-[85%] max-w-[360px] flex-col
-          gap-5 overflow-y-auto border-l border-line bg-white px-5 py-6
+          gap-5 overflow-y-auto border-l border-line frosted px-5 py-6
           pb-[max(1.5rem,env(safe-area-inset-bottom))]
           transition-transform duration-200 ease-out motion-reduce:transition-none
           ${open ? 'translate-x-0' : 'translate-x-full'}`}
@@ -426,6 +566,173 @@ export default function SettingsPanel({
               value={settings.vibrateOn}
               onChange={(vibrateOn) => patchSettings({ vibrateOn })}
             />
+          </div>
+        </Section>
+
+        {/* 背景设置 */}
+        <Section title="背景设置">
+          <div className="card flex flex-col gap-4 px-4 py-4">
+            {/* 4 套内置低饱和度渐变 */}
+            <div className="grid grid-cols-4 gap-2">
+              {BACKGROUND_PRESETS.map((preset) => {
+                const selected =
+                  background.active === 'preset' && background.presetId === preset.id
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => patchBackground({ active: 'preset', presetId: preset.id })}
+                    aria-label={`使用${preset.name}背景`}
+                    aria-pressed={selected}
+                    className={`flex min-h-11 flex-col items-center gap-1.5 rounded-card
+                      border p-1.5 transition-colors duration-200 ${
+                        selected ? 'border-ink' : 'border-line active:bg-surface'
+                      }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="h-9 w-full rounded-[8px] border border-line"
+                      style={{ background: preset.background }}
+                    />
+                    <span className={`text-[11px] ${selected ? 'text-ink' : 'text-muted'}`}>
+                      {preset.name}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 卡片不透明度 */}
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[14px] text-ink">卡片不透明度</span>
+                <span className="text-[12px] text-muted tabular-nums">
+                  {opacityValue}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min={CARD_OPACITY_MIN}
+                max={CARD_OPACITY_MAX}
+                step={1}
+                value={opacityValue}
+                onChange={(event) => handleOpacityChange(Number(event.target.value))}
+                aria-label="卡片不透明度"
+                className="range-slider"
+              />
+              {opacityValue < 50 ? (
+                <p className="text-[12px] text-danger">
+                  低于 50% 后，深色照片下的灰色小字会看不清；0% 时卡片完全透明
+                </p>
+              ) : (
+                <p className="text-[12px] text-muted">
+                  越低背景越透，模糊会自动跟着补偿
+                </p>
+              )}
+            </div>
+
+            <Toggle
+              label="每日随机"
+              value={background.dailyRandom}
+              onChange={(dailyRandom) => {
+                if (dailyRandom && background.images.length === 0) {
+                  setNotice('先上传至少一张图片，才能开每日随机')
+                  return
+                }
+                patchBackground(
+                  dailyRandom ? { dailyRandom, active: 'image' } : { dailyRandom },
+                )
+              }}
+            />
+
+            {background.dailyRandom && bgToday.image && (
+              <p className="text-[12px] text-muted">
+                今天用的是第 {bgToday.image.index + 1} 张，明天零点自动换
+              </p>
+            )}
+
+            <div className="flex flex-col gap-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[14px] text-ink">我的图片</span>
+                <span className="text-[12px] text-muted">
+                  {background.images.length}/{MAX_BACKGROUND_IMAGES} 张 ·{' '}
+                  {(bgUsedChars / 1_000_000).toFixed(1)}MB
+                </span>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                {background.images.map((image, index) => {
+                  const selected = bgToday.image?.index === index
+                  return (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => selectBackgroundImage(index)}
+                      aria-label={`使用第 ${index + 1} 张背景图`}
+                      aria-pressed={selected}
+                      className={`h-16 min-h-11 rounded-card border bg-cover bg-center
+                        transition-colors duration-200 ${
+                          selected ? 'border-ink' : 'border-line'
+                        }`}
+                      style={{ backgroundImage: `url("${image}")` }}
+                    />
+                  )
+                })}
+
+                {!bgFull && (
+                  <button
+                    type="button"
+                    disabled={bgBusy}
+                    onClick={() => bgFileRef.current?.click()}
+                    aria-label="上传背景图片"
+                    className="grid h-16 min-h-11 place-items-center rounded-card border
+                      border-dashed border-line text-muted transition-colors duration-200
+                      active:text-ink disabled:opacity-40"
+                  >
+                    {bgBusy ? (
+                      <span className="text-[11px]">处理中</span>
+                    ) : (
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        className="size-5"
+                        aria-hidden="true"
+                      >
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {background.images.length > 0 && (
+                <button
+                  type="button"
+                  onClick={deleteBackgroundImage}
+                  className="inline-flex min-h-11 items-center text-[13px] text-danger
+                    transition-opacity duration-200 active:opacity-70"
+                >
+                  删除第 {bgSelectedIndex + 1} 张
+                </button>
+              )}
+
+              <p className="text-[12px] leading-relaxed text-muted">
+                图片会先压到最长边 1920px、质量 0.7 再存进浏览器；最多{' '}
+                {MAX_BACKGROUND_IMAGES} 张，合计不超过约 2MB。
+              </p>
+
+              <input
+                ref={bgFileRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleBackgroundFiles}
+                className="hidden"
+              />
+            </div>
           </div>
         </Section>
 

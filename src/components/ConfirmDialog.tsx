@@ -53,7 +53,7 @@ export default function ConfirmDialog({
         className="absolute inset-0 bg-ink/20"
       />
 
-      <div className="relative w-full max-w-[320px] rounded-card border border-line bg-white p-5">
+      <div className="relative w-full max-w-[320px] rounded-card border border-line frosted p-5">
         <h3 className="text-[15px] font-medium text-ink">{title}</h3>
         {description && (
           <p className="mt-2 text-[13px] leading-relaxed text-muted">

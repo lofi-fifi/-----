@@ -39,6 +39,57 @@ export type Badge = {
   streak: number // 获得时的连续天数
 }
 
+/* ------------------------------------------------------------------ */
+/* 背景设置                                                            */
+/* ------------------------------------------------------------------ */
+
+/** 内置的低饱和度渐变 */
+export type BackgroundPresetId = 'blueGray' | 'pinkPurple' | 'mint' | 'white'
+
+/**
+ * 背景最多存几张图。
+ * localStorage 大约 5MB 配额（按 UTF-16 算约 260 万字符），Base64 又比原图胀 33%，
+ * 所以这里既限制张数，也限制总字符数，两道护栏。
+ */
+export const MAX_BACKGROUND_IMAGES = 5
+
+/** 所有背景图 Base64 字符串的总长度上限（字符数），给任务/签到等数据留出余量 */
+export const MAX_BACKGROUND_CHARS = 2_000_000
+
+/**
+ * 卡片不透明度（百分比），0 = 完全透明，100 = 完全不透明。
+ *
+ * 全范围开放，但要注意：低于 50% 后深色照片会把卡片压成中灰，
+ * 次要文字（#888）对比度会掉到 2:1 以下；到 0% 时卡片完全消失，
+ * 文字直接压在照片上。界面上会给出提示，最终由用户自己权衡。
+ */
+export const CARD_OPACITY_MIN = 0
+export const CARD_OPACITY_MAX = 100
+export const CARD_OPACITY_DEFAULT = 70
+
+export type BackgroundSettings = {
+  /** 当前显示内置渐变还是自己上传的图 */
+  active: 'preset' | 'image'
+  presetId: BackgroundPresetId
+  /** 上传的背景图，`data:image/...` 开头的 Base64 */
+  images: string[]
+  /** 关掉每日随机时，手动选中的那张（下标） */
+  imageIndex: number
+  /** 每天按本地日期做种子，从 images 里随机挑一张 */
+  dailyRandom: boolean
+  /** 卡片不透明度，百分比（CARD_OPACITY_MIN ~ CARD_OPACITY_MAX） */
+  cardOpacity: number
+}
+
+export const DEFAULT_BACKGROUND: BackgroundSettings = {
+  active: 'preset',
+  presetId: 'white',
+  images: [],
+  imageIndex: 0,
+  dailyRandom: false,
+  cardOpacity: CARD_OPACITY_DEFAULT,
+}
+
 /** 设置面板里的全部配置 */
 export type Settings = {
   examName: string // "2026 考研"
@@ -48,6 +99,7 @@ export type Settings = {
   soundOn: boolean // 默认 true
   vibrateOn: boolean // 默认 true
   customQuotes: string[]
+  background: BackgroundSettings
 }
 
 /** 整个应用的状态，也是 localStorage 里存的唯一一份 JSON */
@@ -74,6 +126,7 @@ export const DEFAULT_SETTINGS: Settings = {
   soundOn: true,
   vibrateOn: true,
   customQuotes: [],
+  background: DEFAULT_BACKGROUND,
 }
 
 /** 生成一份全新的默认数据（每次都返回新对象，避免调用方改到共享引用） */
@@ -84,7 +137,11 @@ export function createDefaultData(): AppData {
     checkins: [],
     badges: [],
     dayTotals: {},
-    settings: { ...DEFAULT_SETTINGS, customQuotes: [] },
+    settings: {
+      ...DEFAULT_SETTINGS,
+      customQuotes: [],
+      background: { ...DEFAULT_BACKGROUND, images: [] },
+    },
   }
 }
 
@@ -279,8 +336,50 @@ function normalizeDayTotals(raw: unknown): Record<string, number> {
   return result
 }
 
+function isBackgroundPresetId(value: unknown): value is BackgroundPresetId {
+  return (
+    value === 'blueGray' || value === 'pinkPurple' || value === 'mint' || value === 'white'
+  )
+}
+
+/** 背景图必须是 data:image/ 开头的 Base64，避免脏数据塞进 CSS */
+function normalizeBackgroundImages(raw: unknown): string[] {
+  return asStringArray(raw)
+    .filter((item) => item.startsWith('data:image/'))
+    .slice(0, MAX_BACKGROUND_IMAGES)
+}
+
+function normalizeBackground(raw: unknown): BackgroundSettings {
+  if (!isRecord(raw)) return { ...DEFAULT_BACKGROUND, images: [] }
+
+  const images = normalizeBackgroundImages(raw.images)
+  const presetId = isBackgroundPresetId(raw.presetId)
+    ? raw.presetId
+    : DEFAULT_BACKGROUND.presetId
+
+  // 一张图都没有就只能用内置渐变
+  const active = raw.active === 'image' && images.length > 0 ? 'image' : 'preset'
+
+  const rawIndex = Math.round(asNumber(raw.imageIndex, 0))
+  const imageIndex = Math.min(Math.max(0, rawIndex), Math.max(0, images.length - 1))
+
+  const rawOpacity = Math.round(asNumber(raw.cardOpacity, CARD_OPACITY_DEFAULT))
+  const cardOpacity = Math.min(CARD_OPACITY_MAX, Math.max(CARD_OPACITY_MIN, rawOpacity))
+
+  return {
+    active,
+    presetId,
+    images,
+    imageIndex,
+    dailyRandom: asBoolean(raw.dailyRandom, DEFAULT_BACKGROUND.dailyRandom),
+    cardOpacity,
+  }
+}
+
 function normalizeSettings(raw: unknown): Settings {
-  if (!isRecord(raw)) return { ...DEFAULT_SETTINGS, customQuotes: [] }
+  if (!isRecord(raw)) {
+    return { ...DEFAULT_SETTINGS, customQuotes: [], background: { ...DEFAULT_BACKGROUND } }
+  }
 
   return {
     examName: asString(raw.examName, DEFAULT_SETTINGS.examName),
@@ -296,6 +395,7 @@ function normalizeSettings(raw: unknown): Settings {
     soundOn: asBoolean(raw.soundOn, DEFAULT_SETTINGS.soundOn),
     vibrateOn: asBoolean(raw.vibrateOn, DEFAULT_SETTINGS.vibrateOn),
     customQuotes: asUniqueStrings(raw.customQuotes),
+    background: normalizeBackground(raw.background),
   }
 }
 

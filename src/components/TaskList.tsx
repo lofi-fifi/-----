@@ -126,16 +126,17 @@ export default function TaskList({ data, update }: TaskListProps) {
   }
 
   return (
-    <section className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-[15px] font-medium text-ink">
-          {showingToday ? '今日任务' : '任务'}
-        </h2>
-        <span className="text-[13px] text-muted">共 {visible.length} 项</span>
-      </div>
+    <section className="card">
+      {/* 标题 + 日期切换：一起放进卡片，背景是深色图时文字才看得清 */}
+      <div className="flex flex-col gap-3 px-5 pt-4 pb-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-[15px] font-medium text-ink">
+            {showingToday ? '今日任务' : '任务'}
+          </h2>
+          <span className="text-[13px] text-muted">共 {visible.length} 项</span>
+        </div>
 
-      {/* 日期切换 */}
-      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={() => changeDate(-1)}
@@ -189,59 +190,61 @@ export default function TaskList({ data, update }: TaskListProps) {
             <path d="M9 18l6-6-6-6" />
           </svg>
         </button>
+        </div>
       </div>
 
-      <div className="card">
-        {/* 添加任务：回车或点加号 */}
-        <form onSubmit={handleAdd} className="flex items-center gap-3 px-5 py-2">
-          <input
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="添加任务，回车确认"
-            aria-label="新任务内容"
-            className="min-h-11 min-w-0 flex-1 bg-transparent text-[15px] text-ink
-              outline-none placeholder:text-muted"
-          />
-          <button
-            type="submit"
-            disabled={!draft.trim()}
-            aria-label="添加任务"
-            className="grid size-11 shrink-0 place-items-center rounded-full bg-ink
-              text-white transition-opacity duration-200 disabled:opacity-20"
+      {/* 添加任务：回车或点加号 */}
+      <form
+        onSubmit={handleAdd}
+        className="flex items-center gap-3 border-t border-line px-5 py-2"
+      >
+        <input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="添加任务，回车确认"
+          aria-label="新任务内容"
+          className="min-h-11 min-w-0 flex-1 bg-transparent text-[15px] text-ink
+            outline-none placeholder:text-muted"
+        />
+        <button
+          type="submit"
+          disabled={!draft.trim()}
+          aria-label="添加任务"
+          className="grid size-11 shrink-0 place-items-center rounded-full bg-ink
+            text-white transition-opacity duration-200 disabled:opacity-20"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            className="size-4"
+            aria-hidden="true"
           >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              className="size-4"
-              aria-hidden="true"
-            >
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
-        </form>
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
+      </form>
 
-        {visible.length === 0 ? (
-          <p className="border-t border-line px-5 py-8 text-center text-[13px] text-muted">
-            这一天还没有任务
-          </p>
-        ) : (
-          <ul className="divide-y divide-line border-t border-line">
-            {visible.map((task) => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                onToggle={() => commit(toggleTask(tasks, task.id))}
-                onRename={(text) => handleRename(task, text)}
-                onLogTime={() => setLogTaskId(task.id)}
-                onDelete={() => handleDelete(task)}
-              />
-            ))}
-          </ul>
-        )}
-      </div>
+      {visible.length === 0 ? (
+        <p className="border-t border-line px-5 py-8 text-center text-[13px] text-muted">
+          这一天还没有任务
+        </p>
+      ) : (
+        <ul className="divide-y divide-line border-t border-line">
+          {visible.map((task) => (
+            <TaskItem
+              key={task.id}
+              task={task}
+              onToggle={() => commit(toggleTask(tasks, task.id))}
+              onRename={(text) => handleRename(task, text)}
+              onLogTime={() => setLogTaskId(task.id)}
+              onDelete={() => handleDelete(task)}
+            />
+          ))}
+        </ul>
+      )}
 
       {logTarget && (
         <DurationDialog

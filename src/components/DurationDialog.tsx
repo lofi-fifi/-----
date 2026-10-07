@@ -63,7 +63,7 @@ export default function DurationDialog({
 
       <form
         onSubmit={handleSubmit}
-        className="relative w-full max-w-[320px] rounded-card border border-line bg-white p-5"
+        className="relative w-full max-w-[320px] rounded-card border border-line frosted p-5"
       >
         <h3 className="text-[15px] font-medium text-ink">补录时长</h3>
         <p className="mt-1 truncate text-[13px] text-muted">{taskText}</p>

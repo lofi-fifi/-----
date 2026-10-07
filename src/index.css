@@ -34,12 +34,71 @@
     /* 单页应用，满屏但不出现横向滚动 */
     overflow-x: hidden;
   }
+
+  /* 卡片外观的默认值（JS 会按设置里的「卡片透明度」覆盖这两个变量）。
+     写在 CSS 里是为了首屏不闪 —— JS 生效前也有一份合理的底色。 */
+  :root {
+    --card-alpha: 0.7;
+    --card-blur: 13px;
+  }
 }
 
 @layer components {
-  /* 统一的卡片容器：白底 / 浅灰底 + 12px 圆角 + #E5E5E5 边框，无阴影 */
+  /* 统一的卡片容器：半透明白 + 毛玻璃模糊 + 12px 圆角 + #E5E5E5 边框，无阴影。
+     透明度和模糊由 --card-alpha / --card-blur 控制，
+     这两个变量由 JS 按设置里的「卡片透明度」写进 :root。
+     越透明，模糊越大，把背景「揉匀」以保住文字对比度。 */
   .card {
-    @apply rounded-card border border-line bg-surface;
+    @apply rounded-card border border-line;
+    background-color: rgb(255 255 255 / var(--card-alpha));
+    -webkit-backdrop-filter: blur(var(--card-blur));
+    backdrop-filter: blur(var(--card-blur));
+  }
+
+  /* 滑出面板 / 弹窗用的同一套毛玻璃质感 */
+  .frosted {
+    background-color: rgb(255 255 255 / var(--card-alpha));
+    -webkit-backdrop-filter: blur(var(--card-blur));
+    backdrop-filter: blur(var(--card-blur));
+  }
+
+  /* 不透明度滑块：轨道细，但整体撑到 44px 高，手指好点 */
+  .range-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 44px;
+    background: transparent;
+  }
+
+  .range-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 9999px;
+    background: var(--color-line);
+  }
+
+  .range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    margin-top: -9px;
+    border-radius: 9999px;
+    background: var(--color-ink);
+  }
+
+  .range-slider::-moz-range-track {
+    height: 4px;
+    border-radius: 9999px;
+    background: var(--color-line);
+  }
+
+  .range-slider::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 9999px;
+    background: var(--color-ink);
   }
 
   /* 完成任务：文字变灰 + 中间划线 + 200ms 过渡（SPEC 明确要求） */

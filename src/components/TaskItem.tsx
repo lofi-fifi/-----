@@ -234,7 +234,7 @@ export default function TaskItem({
           <div
             role="menu"
             style={{ top: menuPos.top, right: menuPos.right }}
-            className="fixed z-50 w-32 overflow-hidden rounded-card border border-line bg-white py-1"
+            className="fixed z-50 w-32 overflow-hidden rounded-card border border-line frosted py-1"
           >
             <button
               type="button"

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 
 import { useAppData } from './hooks/useAppData'
+import { useTodayKey } from './hooks/useTodayKey'
+import { resolveBackground } from './lib/background'
+import { applyCardAppearance } from './utils/appearance'
 import { syncFeedbackSettings } from './utils/feedback'
 import CheckinSection from './components/CheckinSection'
 import Countdown from './components/Countdown'
@@ -23,6 +26,8 @@ import TaskList from './components/TaskList'
  */
 export default function App() {
   const { data, update } = useAppData()
+  // 跨零点会自动更新，每日随机背景和倒计时都靠它翻篇
+  const today = useTodayKey()
   const [pomodoroOpen, setPomodoroOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
@@ -31,11 +36,33 @@ export default function App() {
     syncFeedbackSettings(data.settings)
   }, [data.settings.soundOn, data.settings.vibrateOn])
 
+  // 卡片不透明度写进 :root 的 CSS 变量，.card / .frosted 都读它
+  useEffect(() => {
+    applyCardAppearance(data.settings.background.cardOpacity)
+  }, [data.settings.background.cardOpacity])
+
+  const background = resolveBackground(data.settings.background, today)
+
   return (
-    <div className="min-h-dvh bg-white">
-      <main className="mx-auto flex w-full max-w-[480px] flex-col gap-6 px-5 pt-8 pb-32">
+    <div className="relative min-h-dvh">
+      {/* 背景层：内置渐变打底，有自定义图时再盖一张上去 */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0"
+        style={{ background: background.presetBackground }}
+      >
+        {background.image && (
+          <img
+            src={background.image.dataUrl}
+            alt=""
+            className="absolute inset-0 size-full object-cover"
+          />
+        )}
+      </div>
+
+      <main className="relative z-10 mx-auto flex w-full max-w-[480px] flex-col gap-6 px-5 pt-8 pb-32">
         {/* 1. 顶部：倒计时 + 右上角齿轮 */}
-        <header className="flex items-start justify-between gap-3">
+        <header className="card flex items-start justify-between gap-3 px-5 py-4">
           <Countdown data={data} />
 
           <button
@@ -43,8 +70,8 @@ export default function App() {
             onClick={() => setSettingsOpen(true)}
             aria-label="打开设置"
             className="grid size-11 shrink-0 place-items-center rounded-card border
-              border-line text-muted transition-colors duration-200 hover:text-ink
-              active:text-ink"
+              border-line bg-white text-muted transition-colors duration-200
+              hover:text-ink active:text-ink"
           >
             <svg
               viewBox="0 0 24 24"

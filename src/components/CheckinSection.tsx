@@ -183,7 +183,7 @@ export default function CheckinSection({ data, update }: CheckinSectionProps) {
               left: popoverPos.left,
               width: POPOVER_WIDTH,
             }}
-            className="fixed z-50 rounded-card border border-line bg-white px-3 py-2"
+            className="fixed z-50 rounded-card border border-line frosted px-3 py-2"
           >
             <p className="text-[12px] text-muted">
               {openMeta.emoji} 连续 {openMeta.days} 天

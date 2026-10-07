@@ -112,7 +112,7 @@ export default function PomodoroPanel({
         aria-modal="true"
         aria-label="番茄钟"
         className={`fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[480px]
-          rounded-t-card border border-line bg-white px-5 pt-3
+          rounded-t-card border border-line frosted px-5 pt-3
           pb-[max(1.25rem,env(safe-area-inset-bottom))]
           transition-transform duration-200 ease-out motion-reduce:transition-none
           ${open ? 'translate-y-0' : 'translate-y-full'}`}
