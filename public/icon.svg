@@ -1,0 +1,21 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 512 512"
+  width="512"
+  height="512"
+  role="img"
+  aria-label="考研打卡"
+>
+  <title>考研打卡</title>
+  <rect width="512" height="512" rx="113" fill="#111111" />
+  <text
+    x="256"
+    y="256"
+    fill="#FFFFFF"
+    font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Hiragino Sans GB', sans-serif"
+    font-size="287"
+    font-weight="600"
+    text-anchor="middle"
+    dominant-baseline="central"
+  >考</text>
+</svg>

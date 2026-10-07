@@ -1,0 +1,17 @@
+node_modules
+dist
+dist-ssr
+.pnpm-store
+*.local
+*.tsbuildinfo
+.vite
+
+# 本机临时验证脚本
+.tmp-*
+.audit
+
+# 编辑器
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store

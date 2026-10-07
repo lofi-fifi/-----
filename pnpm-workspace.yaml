@@ -1,0 +1,10 @@
+# pnpm 11 的项目级设置写在这里（.npmrc 里 pnpm 专属设置已不再生效）。
+#
+# nodeLinker: hoisted
+#   pnpm 默认的 isolated 链接方式要创建真实符号链接，在本机被系统拒绝
+#   （EPERM: operation not permitted, symlink），安装会以
+#   ERR_PNPM_SYMLINK_FAILED 失败。改成扁平化的 hoisted 结构即可正常安装。
+packages:
+  - '.'
+
+nodeLinker: hoisted

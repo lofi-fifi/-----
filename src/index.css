@@ -1,0 +1,140 @@
+@import 'tailwindcss';
+
+/* ------------------------------------------------------------------
+ * 设计变量 —— 来自 SPEC「视觉风格」
+ * 极简白底黑字，参考 Notion / 番茄钟 App
+ * ------------------------------------------------------------------ */
+@theme {
+  /* 颜色 */
+  --color-ink: #111111; /* 主文字 */
+  --color-muted: #888888; /* 次要文字 */
+  --color-line: #e5e5e5; /* 边框 */
+  --color-surface: #fafafa; /* 卡片背景 */
+  /* 全站唯一的彩色：破坏性操作（清空数据 / 覆盖导入）用它提示风险 */
+  --color-danger: #d92d20;
+
+  /* 圆角 */
+  --radius-card: 12px;
+
+  /* 字体：系统默认 */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* 移动端点击不出现灰色高亮块 */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-white font-sans text-ink antialiased;
+    /* 单页应用，满屏但不出现横向滚动 */
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  /* 统一的卡片容器：白底 / 浅灰底 + 12px 圆角 + #E5E5E5 边框，无阴影 */
+  .card {
+    @apply rounded-card border border-line bg-surface;
+  }
+
+  /* 完成任务：文字变灰 + 中间划线 + 200ms 过渡（SPEC 明确要求） */
+  .task-text {
+    @apply transition-all duration-200;
+  }
+
+  .task-text-done {
+    @apply text-muted line-through;
+  }
+
+  /* 次要按钮：极简描边款。min-h-11 = 44px，移动端最小点击高度 */
+  .btn-ghost {
+    @apply inline-flex min-h-11 items-center justify-center rounded-card border
+      border-line bg-white px-3 text-[13px] text-muted transition-colors
+      duration-200 hover:text-ink active:text-ink;
+  }
+
+  /* 主按钮：黑底白字 */
+  .btn-primary {
+    @apply inline-flex min-h-11 items-center justify-center rounded-card bg-ink
+      px-4 text-[13px] font-medium text-white transition-opacity duration-200
+      active:opacity-80;
+  }
+
+  /* 破坏性操作按钮：红底白字，只用在二次确认弹窗里 */
+  .btn-danger {
+    @apply inline-flex min-h-11 items-center justify-center rounded-card
+      bg-danger px-4 text-[13px] font-medium text-white transition-opacity
+      duration-200 active:opacity-80;
+  }
+
+  /* 纯文字按钮：字还是 13px，但撑到 44px 高的点击区 */
+  .btn-text {
+    @apply inline-flex min-h-11 items-center text-[13px] text-muted
+      transition-colors duration-200 hover:text-ink active:text-ink;
+  }
+
+  /* 撤销提示条的入场动画，与全站 200ms 节奏保持一致 */
+  .toast-in {
+    animation: toast-in 200ms ease-out;
+  }
+
+  /* 新徽章：从中心放大冒出来 */
+  .badge-pop {
+    animation: badge-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* 数字输入框：去掉浏览器自带的上下箭头，窄框里放不下 */
+  .input-number {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  .input-number::-webkit-outer-spin-button,
+  .input-number::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toast-in {
+      animation: none;
+    }
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes badge-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-pop {
+    animation: none;
+  }
+}
