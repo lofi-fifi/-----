@@ -4,24 +4,15 @@
 
 从「纯本地存储」一路做到「账号登录 + 好友互相监督 + 离线优先云同步」，中间踩的坑都记在下面。
 
-- **线上地址**：https://lofi-fifi.github.io/REPO_NAME/ （← 把 `REPO_NAME` 换成你的仓库名）
+- **线上地址**：https://lofi-fifi.github.io/guyue/
 - **技术栈**：React 19 · TypeScript · Tailwind CSS 4 · Vite · Supabase (PostgreSQL) · PWA
 - **规模**：48 个文件 / 约 6400 行 TypeScript（其中 6 个测试文件、155 条断言）/ 5 张数据库表
 
 ---
 
-<!--
-  📸 截图放这里。建议放三张（手机上的，深浅色各一张最好看）：
-  1. 主界面（倒计时 + 签到 + 任务）
-  2. 深色模式
-  3. 设置面板（背景设置 / 好友）
-
-  把图片放进 docs/ 目录，然后取消下面的注释：
-
-  | 主界面 | 深色模式 | 好友 |
-  |---|---|---|
-  | ![主界面](docs/home.png) | ![深色](docs/dark.png) | ![好友](docs/friends.png) |
--->
+| 主界面 | 深色模式 | 好友 |
+|---|---|---|
+| ![主界面](docs/home.jpg) | ![深色模式](docs/dark.jpg) | ![好友](docs/friends.jpg) |
 
 ## 功能
 
