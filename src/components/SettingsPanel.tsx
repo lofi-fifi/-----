@@ -28,6 +28,12 @@ type SettingsPanelProps = {
   data: AppData
   /** 返回是否写入成功 —— 背景图可能撑爆 localStorage，需要据此提示用户 */
   update: (updater: (prev: AppData) => AppData) => boolean
+  /** 已登录时的账号信息；没登录（本地版）传 null，整个分组不显示 */
+  account?: {
+    username: string | null
+    email: string | null
+    onLogout: () => void
+  } | null
 }
 
 const STEP_BUTTON =
@@ -227,6 +233,7 @@ export default function SettingsPanel({
   onClose,
   data,
   update,
+  account = null,
 }: SettingsPanelProps) {
   const { settings } = data
 
@@ -496,6 +503,31 @@ export default function SettingsPanel({
             关闭
           </button>
         </div>
+
+        {/* 账号（只有登录后才显示） */}
+        {account !== null && (
+          <Section title="账号">
+            <div className="card flex items-center justify-between gap-3 px-4 py-3">
+              <div className="flex min-w-0 flex-col">
+                <span className="truncate text-[14px] text-ink">
+                  {account.username ?? '未命名'}
+                </span>
+                <span className="truncate text-[12px] text-muted">
+                  {account.email ?? '—'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={account.onLogout}
+                className="inline-flex min-h-11 shrink-0 items-center rounded-card border
+                  border-line bg-white px-3 text-[13px] text-danger transition-colors
+                  duration-200 active:bg-surface"
+              >
+                退出登录
+              </button>
+            </div>
+          </Section>
+        )}
 
         {/* 考试 */}
         <Section title="考试">

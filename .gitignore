@@ -6,9 +6,12 @@ dist-ssr
 *.tsbuildinfo
 .vite
 
-# 本机临时验证脚本
+# 本机临时验证脚本（含路径写死的开发启动器）
 .tmp-*
 .audit
+*.cmd
+*.cmd.log
+*.cmd.err
 
 # 编辑器
 .vscode/*

@@ -44,6 +44,14 @@ jobs:
           # GitHub Pages 是子路径部署（https://<用户名>.github.io/<仓库名>/），
           # 必须把仓库名告诉 Vite，否则资源路径会全部 404
           VITE_BASE: /${{ github.event.repository.name }}/
+          # Supabase 连接信息。.env.local 被 gitignore 了，CI 里拿不到，
+          # 必须在仓库 Settings → Secrets and variables → Actions 里配上这两个，
+          # 否则线上构建出来的产物是「没配 Supabase」的纯本地版，登录功能会消失。
+          #
+          # 用 secrets 而不是 vars 是为了不让人从 Actions 日志里直接读到；
+          # 其实 publishable key 是公开的（它必然出现在前端产物里），不算敏感。
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: 配置 Pages
         uses: actions/configure-pages@v5
