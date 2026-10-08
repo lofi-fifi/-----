@@ -61,8 +61,15 @@ export function formatDateWithWeekday(key: string): string {
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
-/** 是不是合法的 YYYY-MM-DD（2026-02-31 这种会被判为不合法） */
-export function isValidDateKey(key: string): boolean {
+/**
+ * 是不是合法的 YYYY-MM-DD（2026-02-31 这种会被判为不合法）。
+ *
+ * 参数收 unknown 而不是 string —— 它实际会被用来校验从 JSON / localStorage
+ * 读回来的脏数据，那些值什么都可能是。写成类型守卫，调用方拿到 true 之后就
+ * 可以当 string 用了。
+ */
+export function isValidDateKey(key: unknown): key is string {
+  if (typeof key !== 'string') return false
   if (!DATE_KEY_PATTERN.test(key)) return false
   const date = fromDateKey(key)
   return !Number.isNaN(date.getTime()) && toDateKey(date) === key

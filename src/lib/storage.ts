@@ -10,6 +10,8 @@
  *   updateData() —— 读取 → 交给 updater → 写回 → 返回新数据
  */
 
+import { isValidDateKey } from './date'
+
 /** localStorage 使用的唯一键 */
 export const STORAGE_KEY = 'kaoyan-app-data'
 
@@ -240,6 +242,24 @@ function asStringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === 'string')
 }
 
+/**
+ * 签到日期列表：去重、排序、并**校验格式**。
+ *
+ * 校验不是洁癖 —— 这些字符串会被 checkinsToRows 原样发给 Postgres 的 `date` 列，
+ * 只要混进去一个「不是日期」，整批 upsert 就会报
+ * `invalid input syntax for type date`，同步会一直卡住推不上去。
+ */
+function normalizeCheckins(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+
+  const seen = new Set<string>()
+  for (const item of raw) {
+    if (typeof item !== 'string' || !isValidDateKey(item)) continue
+    seen.add(item)
+  }
+  return [...seen].sort()
+}
+
 /** 去掉两端空白、丢弃空串并去重（自定义语录用，重复的没意义） */
 function asUniqueStrings(value: unknown): string[] {
   if (!Array.isArray(value)) return []
@@ -299,6 +319,8 @@ function normalizeTasks(raw: unknown): Record<string, Task[]> {
 
   const result: Record<string, Task[]> = {}
   for (const [date, list] of Object.entries(raw)) {
+    // 日期 key 会原样发给 Postgres 的 date 列，非法的必须挡在这里
+    if (!isValidDateKey(date)) continue
     if (!Array.isArray(list)) continue
 
     const tasks: Task[] = []
@@ -345,6 +367,7 @@ function normalizeDayTotals(raw: unknown): Record<string, number> {
 
   const result: Record<string, number> = {}
   for (const [date, value] of Object.entries(raw)) {
+    if (!isValidDateKey(date)) continue
     if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) continue
     result[date] = value
   }
@@ -438,7 +461,7 @@ export function normalizeData(raw: unknown): AppData {
   return {
     version: DATA_VERSION,
     tasks: normalizeTasks(raw.tasks),
-    checkins: asStringArray(raw.checkins),
+    checkins: normalizeCheckins(raw.checkins),
     badges: normalizeBadges(raw.badges),
     dayTotals: normalizeDayTotals(raw.dayTotals),
     settings: normalizeSettings(raw.settings),

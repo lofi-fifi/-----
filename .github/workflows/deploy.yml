@@ -38,6 +38,10 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
+      # 测试不过就不部署 —— 纯逻辑的单元测试，跑一遍不到 1 秒
+      - name: 跑测试
+        run: pnpm test
+
       - name: 构建
         run: pnpm build
         env:
