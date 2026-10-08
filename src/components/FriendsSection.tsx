@@ -14,14 +14,14 @@ import {
 } from '../utils/supabaseFriends'
 
 const FIELD = [
-  'min-h-11 w-full rounded-card border border-line bg-white px-3',
+  'min-h-11 w-full rounded-card border border-line bg-panel px-3',
   'text-[15px] text-ink outline-none transition-colors duration-200',
   'placeholder:text-muted focus:border-ink',
 ].join(' ')
 
 const SMALL_BUTTON = [
   'inline-flex min-h-11 shrink-0 items-center justify-center rounded-card border',
-  'border-line bg-white px-3 text-[13px] text-ink transition-colors duration-200',
+  'border-line bg-panel px-3 text-[13px] text-ink transition-colors duration-200',
   'active:bg-surface disabled:opacity-40',
 ].join(' ')
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useAppData } from './hooks/useAppData'
 import { useAuth } from './hooks/useAuth'
 import { useSync } from './hooks/useSync'
+import { useTheme } from './hooks/useTheme'
 import { useTodayKey } from './hooks/useTodayKey'
 import { resolveBackground } from './lib/background'
 import { applyCardAppearance } from './utils/appearance'
@@ -64,7 +65,10 @@ export default function App() {
     applyCardAppearance(data.settings.background.cardOpacity)
   }, [data.settings.background.cardOpacity])
 
-  const background = resolveBackground(data.settings.background, today)
+  // 深浅色：把 data-theme 写到 <html>，并返回实际生效的那一档（跟随系统会被解析掉）
+  const theme = useTheme(data.settings.theme)
+
+  const background = resolveBackground(data.settings.background, today, theme)
 
   return (
     <div className="relative min-h-dvh">
@@ -75,11 +79,20 @@ export default function App() {
         style={{ background: background.presetBackground }}
       >
         {background.image && (
-          <img
-            src={background.image.dataUrl}
-            alt=""
-            className="absolute inset-0 size-full object-cover"
-          />
+          <>
+            <img
+              src={background.image.dataUrl}
+              alt=""
+              className="absolute inset-0 size-full object-cover"
+            />
+            {/* 深色模式下把照片压暗，否则深色卡片浮在明亮照片上会糊成一片 */}
+            {background.imageDim > 0 && (
+              <div
+                className="absolute inset-0"
+                style={{ background: `rgb(0 0 0 / ${background.imageDim})` }}
+              />
+            )}
+          </>
         )}
       </div>
 
@@ -99,7 +112,7 @@ export default function App() {
                 onClick={() => setSettingsOpen(true)}
                 aria-label="打开设置"
                 className="grid size-11 shrink-0 place-items-center rounded-card border
-                  border-line bg-white text-muted transition-colors duration-200
+                  border-line bg-panel text-muted transition-colors duration-200
                   hover:text-ink active:text-ink"
               >
                 <svg

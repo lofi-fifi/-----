@@ -15,7 +15,7 @@ export default function FloatingButton({ onClick }: FloatingButtonProps) {
           onClick={onClick}
           aria-label="打开番茄钟"
           className="pointer-events-auto grid size-14 place-items-center rounded-full
-            bg-ink text-white transition-transform duration-200 active:scale-95"
+            bg-ink text-on-ink transition-transform duration-200 active:scale-95"
         >
           <svg
             viewBox="0 0 24 24"

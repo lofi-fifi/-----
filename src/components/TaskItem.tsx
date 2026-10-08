@@ -137,7 +137,7 @@ export default function TaskItem({
           aria-hidden="true"
           className={`grid size-5 shrink-0 place-items-center rounded-full border
             transition-colors duration-200
-            ${task.done ? 'border-ink bg-ink' : 'border-line bg-white'}`}
+            ${task.done ? 'border-ink bg-ink' : 'border-line bg-panel'}`}
         >
           {task.done && (
             <svg
@@ -147,7 +147,7 @@ export default function TaskItem({
               strokeWidth="3"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="size-3 text-white"
+              className="size-3 text-on-ink"
             >
               <path d="M20 6 9 17l-5-5" />
             </svg>

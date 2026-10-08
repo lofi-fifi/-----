@@ -15,6 +15,27 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="考研打卡" />
     <title>考研打卡</title>
+
+    <!--
+      在 React 挂载之前先把主题定下来。
+      没有这段的话，选了深色的用户每次刷新都会先看到一闪的白屏。
+      必须内联在这里 —— 走打包会晚一步，闪屏就回来了。
+    -->
+    <script>
+      ;(function () {
+        try {
+          var mode = localStorage.getItem('kaoyan-theme')
+          if (mode !== 'light' && mode !== 'dark') {
+            mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+          }
+          document.documentElement.setAttribute('data-theme', mode)
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', mode === 'dark' ? '#0B0B0B' : '#FFFFFF')
+        } catch (error) {
+          /* 读不到就走默认的浅色，不影响功能 */
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -17,7 +17,7 @@ type Props = {
 
 /** 输入框统一样式：44px 高、无边框聚焦发黑 */
 const FIELD = [
-  'min-h-11 w-full rounded-card border border-line bg-white px-3',
+  'min-h-11 w-full rounded-card border border-line bg-panel px-3',
   'text-[15px] text-ink outline-none transition-colors duration-200',
   'placeholder:text-muted focus:border-ink',
 ].join(' ')
@@ -104,7 +104,7 @@ export default function AuthScreen({ onSkip }: Props) {
                 type="button"
                 onClick={() => switchMode(value)}
                 className={`min-h-11 flex-1 rounded-[8px] text-[14px] transition-colors duration-200 ${
-                  mode === value ? 'bg-ink text-white' : 'text-muted active:text-ink'
+                  mode === value ? 'bg-ink text-on-ink' : 'text-muted active:text-ink'
                 }`}
               >
                 {value === 'signIn' ? '登录' : '注册'}

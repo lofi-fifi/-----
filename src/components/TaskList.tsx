@@ -211,7 +211,7 @@ export default function TaskList({ data, update }: TaskListProps) {
           disabled={!draft.trim()}
           aria-label="添加任务"
           className="grid size-11 shrink-0 place-items-center rounded-full bg-ink
-            text-white transition-opacity duration-200 disabled:opacity-20"
+            text-on-ink transition-opacity duration-200 disabled:opacity-20"
         >
           <svg
             viewBox="0 0 24 24"

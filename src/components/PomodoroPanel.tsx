@@ -205,7 +205,7 @@ export default function PomodoroPanel({
       <div
         onClick={onClose}
         aria-hidden="true"
-        className={`fixed inset-0 z-40 bg-ink/20 transition-opacity duration-200 ${
+        className={`fixed inset-0 z-40 bg-scrim transition-opacity duration-200 ${
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
       />
@@ -245,7 +245,7 @@ export default function PomodoroPanel({
             value={selectedTaskId ?? ''}
             onChange={(event) => setSelectedTaskId(event.target.value || null)}
             className="min-h-11 min-w-0 flex-1 rounded-card border border-line
-              bg-white px-2 text-[14px] text-ink outline-none"
+              bg-panel px-2 text-[14px] text-ink outline-none"
           >
             <option value="">不关联任务（记到今日总时长）</option>
             {todayTasks.map((task) => (

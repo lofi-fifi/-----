@@ -58,7 +58,7 @@ export default function DurationDialog({
       <div
         aria-hidden="true"
         onClick={onCancel}
-        className="absolute inset-0 bg-ink/20"
+        className="absolute inset-0 bg-scrim"
       />
 
       <form

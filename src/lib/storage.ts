@@ -90,6 +90,18 @@ export const DEFAULT_BACKGROUND: BackgroundSettings = {
   cardOpacity: CARD_OPACITY_DEFAULT,
 }
 
+/**
+ * 深浅色模式。
+ * system = 跟随系统；light / dark = 手动锁死，不管系统怎么设。
+ */
+export type ThemeMode = 'system' | 'light' | 'dark'
+
+export const THEME_MODES: readonly ThemeMode[] = ['system', 'light', 'dark']
+
+export function isThemeMode(value: unknown): value is ThemeMode {
+  return typeof value === 'string' && (THEME_MODES as readonly string[]).includes(value)
+}
+
 /** 设置面板里的全部配置 */
 export type Settings = {
   examName: string // "2026 考研"
@@ -98,6 +110,8 @@ export type Settings = {
   breakMinutes: number // 默认 5
   soundOn: boolean // 默认 true
   vibrateOn: boolean // 默认 true
+  /** 深浅色模式，默认跟随系统 */
+  theme: ThemeMode
   customQuotes: string[]
   background: BackgroundSettings
 }
@@ -125,6 +139,7 @@ export const DEFAULT_SETTINGS: Settings = {
   breakMinutes: 5,
   soundOn: true,
   vibrateOn: true,
+  theme: 'system',
   customQuotes: [],
   background: DEFAULT_BACKGROUND,
 }
@@ -394,6 +409,8 @@ function normalizeSettings(raw: unknown): Settings {
     ),
     soundOn: asBoolean(raw.soundOn, DEFAULT_SETTINGS.soundOn),
     vibrateOn: asBoolean(raw.vibrateOn, DEFAULT_SETTINGS.vibrateOn),
+    // 旧数据没这个字段 -> 落到 'system'，升级不会把用户的深浅色偏好重置掉
+    theme: isThemeMode(raw.theme) ? raw.theme : DEFAULT_SETTINGS.theme,
     customQuotes: asUniqueStrings(raw.customQuotes),
     background: normalizeBackground(raw.background),
   }

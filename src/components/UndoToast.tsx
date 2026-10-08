@@ -21,14 +21,14 @@ export default function UndoToast({ message, onUndo }: UndoToastProps) {
           className="toast-in pointer-events-auto flex items-center justify-between
             gap-4 rounded-card bg-ink px-4 py-3"
         >
-          <span className="min-w-0 truncate text-[13px] text-white">
+          <span className="min-w-0 truncate text-[13px] text-on-ink">
             {message}
           </span>
           <button
             type="button"
             onClick={onUndo}
             className="inline-flex min-h-11 shrink-0 items-center px-1 text-[13px]
-              font-medium text-white underline underline-offset-4"
+              font-medium text-on-ink underline underline-offset-4"
           >
             撤销
           </button>

@@ -13,7 +13,9 @@ import {
   MAX_BACKGROUND_CHARS,
   MAX_BACKGROUND_IMAGES,
   normalizeData,
+  THEME_MODES,
   type AppData,
+  type ThemeMode,
   type BackgroundSettings,
   type Settings,
 } from '../lib/storage'
@@ -51,9 +53,16 @@ const STEP_BUTTON =
   'grid size-11 shrink-0 place-items-center rounded-full border border-line ' +
   'text-muted transition-colors duration-200 active:text-ink disabled:opacity-20'
 
+/** 深浅色三档的中文名 */
+const THEME_LABEL: Record<ThemeMode, string> = {
+  system: '跟随系统',
+  light: '浅色',
+  dark: '深色',
+}
+
 const TEXT_BUTTON =
   'inline-flex min-h-11 items-center justify-center rounded-card border border-line ' +
-  'bg-white px-3 text-[13px] text-ink transition-colors duration-200 active:bg-surface'
+  'bg-panel px-3 text-[13px] text-ink transition-colors duration-200 active:bg-surface'
 
 /** 提示条停留多久 */
 const NOTICE_MS = 2600
@@ -183,7 +192,7 @@ function Stepper({
             }}
             aria-label={`${label}（分钟）`}
             className="input-number min-h-11 w-[3.5rem] rounded-card border border-line
-              bg-white px-2 text-center text-[14px] text-ink tabular-nums outline-none"
+              bg-panel px-2 text-center text-[14px] text-ink tabular-nums outline-none"
           />
         ) : (
           <button
@@ -245,7 +254,7 @@ function Toggle({
         onClick={() => onChange(!value)}
         className={`inline-flex min-h-11 min-w-11 items-center justify-center
           rounded-card border px-3 text-[13px] transition-colors duration-200 ${
-            value ? 'border-ink bg-ink text-white' : 'border-line bg-white text-muted'
+            value ? 'border-ink bg-ink text-on-ink' : 'border-line bg-panel text-muted'
           }`}
       >
         {value ? '开' : '关'}
@@ -507,7 +516,7 @@ export default function SettingsPanel({
       <div
         onClick={onClose}
         aria-hidden="true"
-        className={`fixed inset-0 z-40 bg-ink/20 transition-opacity duration-200 ${
+        className={`fixed inset-0 z-40 bg-scrim transition-opacity duration-200 ${
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
       />
@@ -551,7 +560,7 @@ export default function SettingsPanel({
                   type="button"
                   onClick={account.onLogout}
                   className="inline-flex min-h-11 shrink-0 items-center rounded-card border
-                    border-line bg-white px-3 text-[13px] text-danger transition-colors
+                    border-line bg-panel px-3 text-[13px] text-danger transition-colors
                     duration-200 active:bg-surface"
                 >
                   退出登录
@@ -573,7 +582,7 @@ export default function SettingsPanel({
                       onClick={() => setConfirmPull(true)}
                       disabled={sync.status === 'pulling' || sync.status === 'pushing'}
                       className="inline-flex min-h-11 shrink-0 items-center rounded-card border
-                        border-line bg-white px-3 text-[13px] text-ink transition-colors
+                        border-line bg-panel px-3 text-[13px] text-ink transition-colors
                         duration-200 active:bg-surface disabled:opacity-40"
                     >
                       从云端覆盖本地
@@ -602,7 +611,7 @@ export default function SettingsPanel({
                 type="button"
                 onClick={onRequestLogin}
                 className="inline-flex min-h-11 shrink-0 items-center rounded-card border
-                  border-line bg-white px-3 text-[13px] text-ink transition-colors
+                  border-line bg-panel px-3 text-[13px] text-ink transition-colors
                   duration-200 active:bg-surface"
               >
                 去登录
@@ -625,7 +634,7 @@ export default function SettingsPanel({
                 placeholder="2026 考研"
                 aria-label="考试名称"
                 className="min-h-11 min-w-0 flex-1 rounded-card border border-line
-                  bg-white px-2 text-right text-[14px] text-ink outline-none
+                  bg-panel px-2 text-right text-[14px] text-ink outline-none
                   placeholder:text-muted"
               />
             </label>
@@ -640,7 +649,7 @@ export default function SettingsPanel({
                   if (event.target.value) patchSettings({ examDate: event.target.value })
                 }}
                 aria-label="考试日期"
-                className="min-h-11 min-w-0 rounded-card border border-line bg-white
+                className="min-h-11 min-w-0 rounded-card border border-line bg-panel
                   px-2 text-[14px] text-ink outline-none"
               />
             </label>
@@ -687,6 +696,31 @@ export default function SettingsPanel({
         </Section>
 
         {/* 背景设置 */}
+        {/* 外观：深浅色 */}
+        <Section title="外观">
+          <div className="card flex flex-col gap-3 px-4 py-4">
+            <span className="text-[14px] text-ink">深浅色</span>
+            <div className="flex gap-1 rounded-card border border-line p-1">
+              {THEME_MODES.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => patchSettings({ theme: mode })}
+                  className={`min-h-11 flex-1 rounded-[8px] text-[13px] transition-colors duration-200 ${
+                    settings.theme === mode ? 'bg-ink text-on-ink' : 'text-muted active:text-ink'
+                  }`}
+                >
+                  {THEME_LABEL[mode]}
+                </button>
+              ))}
+            </div>
+            <p className="text-[12px] text-muted">
+              {settings.theme === 'system'
+                ? '跟随手机／电脑的系统设置，系统一开深色就跟着变'
+                : '已锁定，不跟随系统'}
+            </p>
+          </div>
+        </Section>
         <Section title="背景设置">
           <div className="card flex flex-col gap-4 px-4 py-4">
             {/* 4 套内置低饱和度渐变 */}
@@ -893,14 +927,14 @@ export default function SettingsPanel({
                 onChange={(event) => setQuoteDraft(event.target.value)}
                 placeholder="添加一条语录，回车确认"
                 aria-label="新增自定义语录"
-                className="min-w-0 flex-1 rounded-card border border-line bg-white px-3 min-h-11 text-[14px] text-ink outline-none placeholder:text-muted"
+                className="min-w-0 flex-1 rounded-card border border-line bg-panel px-3 min-h-11 text-[14px] text-ink outline-none placeholder:text-muted"
               />
               <button
                 type="submit"
                 disabled={!quoteDraft.trim()}
                 aria-label="添加语录"
                 className="grid size-11 shrink-0 place-items-center rounded-full bg-ink
-                  text-white transition-opacity duration-200 disabled:opacity-20"
+                  text-on-ink transition-opacity duration-200 disabled:opacity-20"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -941,7 +975,7 @@ export default function SettingsPanel({
             <button
               type="button"
               onClick={() => setConfirmClear(true)}
-              className="inline-flex min-h-11 items-center rounded-card border border-line bg-white px-3 text-[13px] text-danger transition-colors duration-200 active:bg-surface"
+              className="inline-flex min-h-11 items-center rounded-card border border-line bg-panel px-3 text-[13px] text-danger transition-colors duration-200 active:bg-surface"
             >
               清空所有数据
             </button>

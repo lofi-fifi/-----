@@ -115,7 +115,7 @@ export default function CheckinSection({ data, update }: CheckinSectionProps) {
             rounded-card px-4 text-[13px] font-medium transition-colors duration-200 ${
               signedToday
                 ? 'border border-line bg-surface text-muted'
-                : 'bg-ink text-white active:opacity-80'
+                : 'bg-ink text-on-ink active:opacity-80'
             }`}
         >
           {signedToday ? '已签到 ✓' : '今日签到'}
@@ -144,7 +144,7 @@ export default function CheckinSection({ data, update }: CheckinSectionProps) {
                     : `连续 ${meta.days} 天徽章，未获得`
                 }
                 className={`flex min-h-11 w-full flex-col items-center justify-center
-                  gap-1.5 rounded-card border border-line bg-white px-2 py-3
+                  gap-1.5 rounded-card border border-line bg-panel px-2 py-3
                   transition-colors duration-200 ${earned ? 'active:bg-surface' : ''}`}
               >
                 <span className="flex items-baseline gap-0.5">

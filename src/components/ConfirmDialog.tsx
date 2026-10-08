@@ -50,7 +50,7 @@ export default function ConfirmDialog({
       <div
         aria-hidden="true"
         onClick={onCancel}
-        className="absolute inset-0 bg-ink/20"
+        className="absolute inset-0 bg-scrim"
       />
 
       <div className="relative w-full max-w-[320px] rounded-card border border-line frosted p-5">

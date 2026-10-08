@@ -5,13 +5,23 @@
  * 极简白底黑字，参考 Notion / 番茄钟 App
  * ------------------------------------------------------------------ */
 @theme {
-  /* 颜色 */
+  /* 颜色。这些值会在下面按深浅色模式被覆盖 ——
+     Tailwind 生成的工具类引用的是 var(--color-xxx)，所以改一次全站生效。 */
   --color-ink: #111111; /* 主文字 */
   --color-muted: #888888; /* 次要文字 */
   --color-line: #e5e5e5; /* 边框 */
-  --color-surface: #fafafa; /* 卡片背景 */
-  /* 全站唯一的彩色：破坏性操作（清空数据 / 覆盖导入）用它提示风险 */
+  --color-surface: #fafafa; /* 按下态背景 */
+  --color-panel: #ffffff; /* 输入框 / 次要按钮的底 */
+  --color-canvas: #ffffff; /* 页面底色（只在过滚动时露出来） */
+  --color-on-ink: #ffffff; /* 压在 ink 底色上的文字 */
+  /* 弹窗背后的遮罩。不能复用 ink —— 深色下 ink 会变浅，遮罩反而把背景照亮了 */
+  --color-scrim: rgb(17 17 17 / 0.2);
+
+  /* 全站唯一的彩色：破坏性操作（清空数据 / 覆盖导入）用它提示风险。
+     拆成两个是因为用途不同：深色下当「文字色」要够亮，当「按钮底」又要够暗
+     才能压住白字，一个值做不到两边都达标。 */
   --color-danger: #d92d20;
+  --color-danger-solid: #d92d20;
 
   /* 圆角 */
   --radius-card: 12px;
@@ -30,16 +40,39 @@
   }
 
   body {
-    @apply bg-white font-sans text-ink antialiased;
+    @apply bg-canvas font-sans text-ink antialiased;
     /* 单页应用，满屏但不出现横向滚动 */
     overflow-x: hidden;
   }
 
   /* 卡片外观的默认值（JS 会按设置里的「卡片透明度」覆盖这两个变量）。
-     写在 CSS 里是为了首屏不闪 —— JS 生效前也有一份合理的底色。 */
+     写在 CSS 里是为了首屏不闪 —— JS 生效前也有一份合理的底色。
+     --card-rgb 是玻璃的基色，用空格分隔的 RGB，好和 alpha 拼成 rgb(r g b / a)。 */
   :root {
     --card-alpha: 0.7;
     --card-blur: 13px;
+    --card-rgb: 255 255 255;
+    color-scheme: light;
+  }
+
+  /* 深色模式：只覆盖变量，所有工具类（text-ink / bg-panel / border-line …）
+     自动跟着变，组件代码一行都不用改。
+     属性挂在 <html> 上，由 utils/theme.ts 写入。 */
+  :root[data-theme='dark'] {
+    --color-ink: #f2f2f2;
+    --color-muted: #9a9a9a;
+    --color-line: #2e2e2e;
+    --color-surface: #1a1a1a;
+    --color-panel: #1c1c1c;
+    --color-canvas: #0b0b0b;
+    --color-on-ink: #111111;
+    --color-scrim: rgb(0 0 0 / 0.6);
+    --color-danger: #ff7b72;
+    --color-danger-solid: #b3271e;
+
+    --card-rgb: 36 36 36;
+    /* 让浏览器把滚动条、输入框光标、自动填充也跟着变深 */
+    color-scheme: dark;
   }
 }
 
@@ -50,14 +83,14 @@
      越透明，模糊越大，把背景「揉匀」以保住文字对比度。 */
   .card {
     @apply rounded-card border border-line;
-    background-color: rgb(255 255 255 / var(--card-alpha));
+    background-color: rgb(var(--card-rgb) / var(--card-alpha));
     -webkit-backdrop-filter: blur(var(--card-blur));
     backdrop-filter: blur(var(--card-blur));
   }
 
   /* 滑出面板 / 弹窗用的同一套毛玻璃质感 */
   .frosted {
-    background-color: rgb(255 255 255 / var(--card-alpha));
+    background-color: rgb(var(--card-rgb) / var(--card-alpha));
     -webkit-backdrop-filter: blur(var(--card-blur));
     backdrop-filter: blur(var(--card-blur));
   }
@@ -120,14 +153,14 @@
   /* 主按钮：黑底白字 */
   .btn-primary {
     @apply inline-flex min-h-11 items-center justify-center rounded-card bg-ink
-      px-4 text-[13px] font-medium text-white transition-opacity duration-200
+      px-4 text-[13px] font-medium text-on-ink transition-opacity duration-200
       active:opacity-80;
   }
 
   /* 破坏性操作按钮：红底白字，只用在二次确认弹窗里 */
   .btn-danger {
     @apply inline-flex min-h-11 items-center justify-center rounded-card
-      bg-danger px-4 text-[13px] font-medium text-white transition-opacity
+      bg-danger-solid px-4 text-[13px] font-medium text-white transition-opacity
       duration-200 active:opacity-80;
   }
 

@@ -22,29 +22,46 @@ export function blurForAlpha(alphaPercent: number): number {
   return Math.round(8 + t * 16)
 }
 
-/** 内置的 4 套低饱和度背景 */
+/**
+ * 内置的 4 套背景，每套都有浅色和深色两个版本。
+ *
+ * 深色版不是简单地把浅色版调暗 —— 那样会变成一坨灰。
+ * 而是保留原来那点色相（蓝灰偏蓝、粉紫偏紫、浅绿偏绿），
+ * 只把明度压到近黑，这样换主题时「性格」还在。
+ */
 export const BACKGROUND_PRESETS: readonly {
   id: BackgroundPresetId
   name: string
   /** 直接可以塞进 style.background 的 CSS 值 */
   background: string
+  /** 深色模式下的对应版本 */
+  darkBackground: string
 }[] = [
   {
     id: 'blueGray',
     name: '蓝灰',
     background: 'linear-gradient(160deg, #eef2f7 0%, #dbe3ec 100%)',
+    darkBackground: 'linear-gradient(160deg, #0f141a 0%, #1a2129 100%)',
   },
   {
     id: 'pinkPurple',
     name: '粉紫',
     background: 'linear-gradient(160deg, #f7eff6 0%, #e6dff0 100%)',
+    darkBackground: 'linear-gradient(160deg, #171216 0%, #241c26 100%)',
   },
   {
     id: 'mint',
     name: '浅绿',
     background: 'linear-gradient(160deg, #eff5f1 0%, #dceade 100%)',
+    darkBackground: 'linear-gradient(160deg, #0f1613 0%, #17211a 100%)',
   },
-  { id: 'white', name: '纯白', background: '#FFFFFF' },
+  {
+    id: 'white',
+    name: '纯白',
+    background: '#FFFFFF',
+    // 深色下叫「纯黑」更贴切，但 id 不能改（改了会读不出用户已存的设置）
+    darkBackground: '#0b0b0b',
+  },
 ]
 
 export function getPreset(id: BackgroundPresetId): (typeof BACKGROUND_PRESETS)[number] {
@@ -115,11 +132,21 @@ export function dailyImageIndex(dateKey: string, count: number): number {
 
 export type ResolvedBackground = {
   presetId: BackgroundPresetId
-  /** 内置渐变，永远有值，作为底色铺在最下面 */
+  /** 内置渐变（已按当前主题选好版本），永远有值，作为底色铺在最下面 */
   presetBackground: string
   /** 有值时说明要在底色上再盖一张自定义图 */
   image: { index: number; dataUrl: string } | null
+  /**
+   * 盖在自定义图上的黑色遮罩不透明度（0 = 不盖）。
+   *
+   * 深色模式下照片必须压暗一点，否则深色卡片浮在明亮照片上会糊成一片。
+   * 内置渐变不需要 —— 它们的深色版本本来就已经够暗了。
+   */
+  imageDim: number
 }
+
+/** 深色模式下自定义背景图的压暗程度 */
+export const DARK_IMAGE_DIM = 0.45
 
 /**
  * 最终该显示什么。
@@ -128,12 +155,16 @@ export type ResolvedBackground = {
 export function resolveBackground(
   bg: BackgroundSettings,
   dateKey: string = todayKey(),
+  theme: 'light' | 'dark' = 'light',
 ): ResolvedBackground {
   const preset = getPreset(bg.presetId)
+  const dark = theme === 'dark'
+
   const base: ResolvedBackground = {
     presetId: preset.id,
-    presetBackground: preset.background,
+    presetBackground: dark ? preset.darkBackground : preset.background,
     image: null,
+    imageDim: 0,
   }
 
   if (bg.active !== 'image' || bg.images.length === 0) return base
@@ -143,7 +174,7 @@ export function resolveBackground(
     : Math.min(Math.max(0, bg.imageIndex), bg.images.length - 1)
 
   const dataUrl = bg.images[index] ?? bg.images[0]
-  return { ...base, image: { index, dataUrl } }
+  return { ...base, image: { index, dataUrl }, imageDim: dark ? DARK_IMAGE_DIM : 0 }
 }
 
 /** 所有背景图 Base64 加起来的字符数，用于容量护栏和界面提示 */
