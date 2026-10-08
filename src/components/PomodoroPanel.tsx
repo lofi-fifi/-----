@@ -1,12 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 
 import { usePomodoro } from '../hooks/usePomodoro'
 import { todayKey } from '../lib/date'
+import { PHASE_MINUTES_BOUNDS } from '../lib/pomodoro'
 import type { AppData, Task } from '../lib/storage'
 import { addSeconds, sortForDisplay } from '../lib/tasks'
 import { formatClock, formatDuration } from '../lib/time'
+import { vibrate } from '../utils/feedback'
 
 const EMPTY_TASKS: Task[] = []
+
+/** 滑动多少像素算一格（1 分钟）。移动端 22px 大概是拇指滑一下的 1/4 屏高 */
+const SWIPE_STEP_PX = 22
+
+/** 鼠标滚轮多少 deltaY 算一格 */
+const WHEEL_STEP = 60
 
 type PomodoroPanelProps = {
   open: boolean
@@ -73,7 +82,7 @@ export default function PomodoroPanel({
     [update, today, selectedTaskId, targetTask],
   )
 
-  const { state, start, pause, reset } = usePomodoro({
+  const { state, start, pause, reset, adjustBy, effectiveDurations, overrides } = usePomodoro({
     durations: {
       focusMinutes: data.settings.focusMinutes,
       breakMinutes: data.settings.breakMinutes,
@@ -81,9 +90,104 @@ export default function PomodoroPanel({
     onLogFocus: handleLogFocus,
   })
 
+  /* ---------- 上下滑动调时长 ---------- */
+
+  const timerRef = useRef<HTMLDivElement>(null)
+  /** 手指起点、累计位移、是否正按着 */
+  const gestureRef = useRef({ y: 0, acc: 0, active: false })
+  const [dragging, setDragging] = useState(false)
+
+  /** 连续走 n 格（正数加、负数减）。一格一调用，连滑三格才会加 3 分钟 */
+  const applySteps = useCallback(
+    (steps: number) => {
+      if (steps === 0) return
+      let changed = false
+      for (let i = 0; i < Math.abs(steps); i += 1) {
+        if (adjustBy(steps > 0 ? 1 : -1)) changed = true
+      }
+      // 到边界时 adjustBy 返回 false，就不震了，手感上能察觉「到头了」
+      if (changed) vibrate([12])
+    },
+    [adjustBy],
+  )
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    gestureRef.current = { y: event.clientY, acc: 0, active: true }
+    setDragging(true)
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const gesture = gestureRef.current
+    if (!gesture.active) return
+
+    // 往上滑 clientY 变小，取反让「往上 = 加时间」
+    gesture.acc += gesture.y - event.clientY
+    gesture.y = event.clientY
+
+    let steps = 0
+    while (gesture.acc >= SWIPE_STEP_PX) {
+      gesture.acc -= SWIPE_STEP_PX
+      steps += 1
+    }
+    while (gesture.acc <= -SWIPE_STEP_PX) {
+      gesture.acc += SWIPE_STEP_PX
+      steps -= 1
+    }
+
+    if (steps !== 0) applySteps(steps)
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    gestureRef.current.active = false
+    setDragging(false)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
+  // 电脑上用滚轮也能调 —— 不然这个功能在桌面上没法试。
+  // 必须用非 passive 的监听器才能 preventDefault，挡住背景页面跟着滚。
+  const wheelAccRef = useRef(0)
+  useEffect(() => {
+    const node = timerRef.current
+    if (!node) return
+
+    function handleWheel(event: WheelEvent) {
+      event.preventDefault()
+      // 往上滚 deltaY 为负 -> 加时间，和触摸方向一致
+      wheelAccRef.current -= event.deltaY
+
+      let steps = 0
+      while (wheelAccRef.current >= WHEEL_STEP) {
+        wheelAccRef.current -= WHEEL_STEP
+        steps += 1
+      }
+      while (wheelAccRef.current <= -WHEEL_STEP) {
+        wheelAccRef.current += WHEEL_STEP
+        steps -= 1
+      }
+
+      if (steps !== 0) applyStepsRef.current(steps)
+    }
+
+    node.addEventListener('wheel', handleWheel, { passive: false })
+    return () => node.removeEventListener('wheel', handleWheel)
+  }, [])
+
+  // 上面那个 effect 只挂一次，靠 ref 拿到最新的 applySteps
+  const applyStepsRef = useRef(applySteps)
+  applyStepsRef.current = applySteps
+
   const phaseText = state.phase === 'focus' ? '专注' : '休息'
   const statusText =
     state.status === 'running' ? '进行中' : state.status === 'paused' ? '已暂停' : '待开始'
+
+  /** 当前相位生效的分钟数、上下限、以及有没有被滑动改过 */
+  const bounds = PHASE_MINUTES_BOUNDS[state.phase]
+  const currentMinutes =
+    state.phase === 'focus' ? effectiveDurations.focusMinutes : effectiveDurations.breakMinutes
+  const isOverridden = state.phase === 'focus' ? overrides.focus !== null : overrides.break !== null
 
   function handleStart() {
     setLastLog(null)
@@ -152,15 +256,35 @@ export default function PomodoroPanel({
           </select>
         </div>
 
-        {/* 大号等宽倒计时 */}
-        <div className="flex flex-col items-center gap-2 py-7">
+        {/* 大号等宽倒计时 —— 这一块同时是「上下滑动调时长」的手势区 */}
+        <div
+          ref={timerRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          role="slider"
+          aria-label="专注时长，上下滑动调节"
+          aria-valuemin={bounds.min}
+          aria-valuemax={bounds.max}
+          aria-valuenow={currentMinutes}
+          className="flex cursor-ns-resize touch-none flex-col items-center gap-2 py-7 select-none"
+        >
           <span className="text-[13px] text-muted">
             {phaseText} · {statusText}
           </span>
-          <p className="text-[56px] leading-none font-semibold tracking-tight text-ink tabular-nums">
+          <p
+            className={`text-[56px] leading-none font-semibold tracking-tight text-ink tabular-nums
+              transition-transform duration-150 ${dragging ? 'scale-[1.05]' : 'scale-100'}`}
+          >
             {formatClock(state.remaining)}
           </p>
         </div>
+
+        <p className="mb-4 text-center text-[12px] text-muted">
+          上下滑动倒计时可调时长（当前 {currentMinutes} 分钟
+          {isOverridden ? '，仅本次' : ''}）
+        </p>
 
         {/* 开始 / 暂停 / 重置 */}
         <div className="flex justify-center gap-2">

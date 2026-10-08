@@ -156,6 +156,13 @@ export default function App() {
                   }
                 : null
             }
+            onRequestLogin={
+              auth.status === 'localOnly'
+                ? () => {
+                    auth.cancelSkip()
+                  }
+                : null
+            }
             sync={
               auth.status === 'signedIn'
                 ? {

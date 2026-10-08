@@ -105,11 +105,22 @@ export function useAuth() {
     setState({ status: 'localOnly', ...EMPTY })
   }, [])
 
+  /**
+   * 取消「先不登录」的选择，退回登录页。
+   *
+   * 少了这个，用户在登录页点了「先不登录」之后就再也进不去登录页了 ——
+   * 设置面板里那些登录相关的分组只在已登录时才渲染，等于把自己关在门外。
+   */
+  const cancelSkip = useCallback(() => {
+    writeSkip(false)
+    setState({ status: 'signedOut', ...EMPTY })
+  }, [])
+
   const logout = useCallback(async () => {
     writeSkip(false)
     await signOut()
     setState({ status: 'signedOut', ...EMPTY })
   }, [])
 
-  return { ...state, skipLogin, logout }
+  return { ...state, skipLogin, cancelSkip, logout }
 }

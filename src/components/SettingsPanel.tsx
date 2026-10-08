@@ -35,6 +35,8 @@ type SettingsPanelProps = {
     email: string | null
     onLogout: () => void
   } | null
+  /** 用户选了「先不登录」时传进来，用来回到登录页；已登录或没配 Supabase 传 null */
+  onRequestLogin?: (() => void) | null
   /** 云同步状态；没登录传 null */
   sync?: {
     status: 'off' | 'idle' | 'pulling' | 'pushing' | 'offline' | 'error'
@@ -260,6 +262,7 @@ export default function SettingsPanel({
   update,
   account = null,
   sync = null,
+  onRequestLogin = null,
 }: SettingsPanelProps) {
   const { settings } = data
 
@@ -581,6 +584,29 @@ export default function SettingsPanel({
                   )}
                 </div>
               )}
+            </div>
+          </Section>
+        )}
+
+        {/* 本地模式：留一个回登录页的入口 */}
+        {onRequestLogin !== null && (
+          <Section title="账号">
+            <div className="card flex items-center justify-between gap-3 px-4 py-3">
+              <div className="flex min-w-0 flex-col">
+                <span className="text-[14px] text-ink">本地模式</span>
+                <span className="text-[12px] text-muted">
+                  登录后可加好友；云端有数据时会覆盖本机
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={onRequestLogin}
+                className="inline-flex min-h-11 shrink-0 items-center rounded-card border
+                  border-line bg-white px-3 text-[13px] text-ink transition-colors
+                  duration-200 active:bg-surface"
+              >
+                去登录
+              </button>
             </div>
           </Section>
         )}

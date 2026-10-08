@@ -33,6 +33,8 @@ export type PomodoroAction =
   | { type: 'tick'; phase: PomodoroPhase; remaining: number }
   /** 设置里的时长变了，空闲时把倒计时重新对齐（具体数值取 reducePomodoro 的 durations 参数） */
   | { type: 'durations' }
+  /** 上下滑动调时长：剩余时间和本段总时长同时加减，已专注的部分不受影响 */
+  | { type: 'adjust'; deltaSeconds: number }
 
 export type ReduceResult = {
   state: PomodoroState
@@ -43,6 +45,25 @@ export type ReduceResult = {
 }
 
 const MINUTE = 60
+
+/**
+ * 各相位分钟数的上下限。和设置面板里 Stepper 的 min/max 保持一致 ——
+ * 滑动调节和设置里手输走的是同一套边界，不会出现「设置里最多 60、滑动能到 180」这种矛盾。
+ */
+export const PHASE_MINUTES_BOUNDS: Record<PomodoroPhase, { min: number; max: number }> = {
+  focus: { min: 1, max: 180 },
+  break: { min: 1, max: 60 },
+}
+
+/** 把分钟数夹到该相位的合法区间 */
+export function clampPhaseMinutes(phase: PomodoroPhase, minutes: number): number {
+  const { min, max } = PHASE_MINUTES_BOUNDS[phase]
+  const rounded = Math.round(minutes)
+  // 只挡 NaN。用 Number.isFinite 会把 ±Infinity 也拦下来，
+  // 那样 +Infinity 会被错夹到下限 1 而不是上限。
+  if (Number.isNaN(rounded)) return min
+  return Math.min(max, Math.max(min, rounded))
+}
 
 /** 某个相位的完整秒数 */
 export function phaseSeconds(
@@ -158,6 +179,28 @@ export function reducePomodoro(
         state: idleFocusState(durations),
         loggedFocusSeconds: 0,
         alert: true,
+      }
+    }
+
+    /* 上下滑动调时长（只作用于当前这一段，不写回设置） */
+    case 'adjust': {
+      // 空闲时交给 durations 那条路处理 —— 滑完之后 durations 会变，
+      // 那个 effect 会按新时长把倒计时重新对齐，这里不用重复做。
+      if (state.status === 'idle') return unchanged(state)
+
+      // 剩余时间至少留 1 秒，不然一滑就直接结束了
+      const remaining = Math.max(1, state.remaining + action.deltaSeconds)
+      // sessionTotal 不能小于 remaining，否则「已专注」会算成负数
+      const sessionTotal = Math.max(remaining, state.sessionTotal + action.deltaSeconds)
+
+      if (remaining === state.remaining && sessionTotal === state.sessionTotal) {
+        return unchanged(state)
+      }
+
+      return {
+        state: { ...state, remaining, sessionTotal },
+        loggedFocusSeconds: 0,
+        alert: false,
       }
     }
 
