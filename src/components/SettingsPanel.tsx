@@ -22,7 +22,6 @@ import { copyText } from '../utils/clipboard'
 import { compressImage } from '../utils/image'
 import ConfirmDialog from './ConfirmDialog'
 import FriendsSection from './FriendsSection'
-import InstallCard from './InstallCard'
 
 type SettingsPanelProps = {
   open: boolean
@@ -614,11 +613,6 @@ export default function SettingsPanel({
 
         {/* 好友（只有登录后才显示） */}
         {account !== null && <FriendsSection active={open} />}
-
-        {/* 安装引导（装过就自动不显示） */}
-        <Section title="安装到桌面">
-          <InstallCard />
-        </Section>
 
         {/* 考试 */}
         <Section title="考试">

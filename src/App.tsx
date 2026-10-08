@@ -11,7 +11,6 @@ import AuthScreen from './components/AuthScreen'
 import CheckinSection from './components/CheckinSection'
 import Countdown from './components/Countdown'
 import FloatingButton from './components/FloatingButton'
-import InstallCard from './components/InstallCard'
 import PomodoroPanel from './components/PomodoroPanel'
 import QuoteCard from './components/QuoteCard'
 import SettingsPanel from './components/SettingsPanel'
@@ -120,9 +119,6 @@ export default function App() {
                 </svg>
               </button>
             </header>
-
-            {/* 装到桌面的引导。装过或点过「不再提示」就自动消失 */}
-            <InstallCard variant="banner" />
 
             {/* 2. 鸡汤卡片 */}
             <QuoteCard data={data} />
