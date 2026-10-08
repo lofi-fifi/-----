@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { useAppData } from './hooks/useAppData'
 import { useAuth } from './hooks/useAuth'
+import { useSync } from './hooks/useSync'
 import { useTodayKey } from './hooks/useTodayKey'
 import { resolveBackground } from './lib/background'
 import { applyCardAppearance } from './utils/appearance'
@@ -45,6 +46,13 @@ export default function App() {
   const today = useTodayKey()
   const [pomodoroOpen, setPomodoroOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // 云端同步。未登录时 userId 为 null，hook 自己会停摆
+  const sync = useSync({
+    userId: auth.status === 'signedIn' ? auth.userId : null,
+    data,
+    replace: (next) => update(() => next),
+  })
 
   // 把「提示音 / 震动」开关同步给 utils/feedback，调用方就不用各自判断了
   useEffect(() => {
@@ -144,6 +152,19 @@ export default function App() {
                     email: auth.email,
                     onLogout: () => {
                       void auth.logout()
+                    },
+                  }
+                : null
+            }
+            sync={
+              auth.status === 'signedIn'
+                ? {
+                    status: sync.status,
+                    message: sync.message,
+                    pending: sync.pending,
+                    lastSyncedAt: sync.lastSyncedAt,
+                    onPull: () => {
+                      void sync.pullNow()
                     },
                   }
                 : null

@@ -13,7 +13,8 @@
 | 文件 | 内容 | 状态 |
 |---|---|---|
 | [`supabase/001-init.sql`](supabase/001-init.sql) | 第一轮：`profiles` / `friendships` / `checkins` + 触发器 + RLS | ✅ 已执行 |
-| [`supabase/002-tasks-and-friends.sql`](supabase/002-tasks-and-friends.sql) | 第二轮：`tasks` / `user_settings` + 好友可见性调整 | ⬜ 待执行 |
+| [`supabase/002-tasks-and-friends.sql`](supabase/002-tasks-and-friends.sql) | 第二轮：`tasks` / `user_settings` + 好友可见性调整 | ✅ 已执行 |
+| [`supabase/003-friends-rpc.sql`](supabase/003-friends-rpc.sql) | 第三轮：`list_my_friendships` 函数（让待确认请求能显示对方名字） | ⬜ 待执行 |
 
 下面第三节贴的是**第一轮**的完整内容（和 001 一致）。
 

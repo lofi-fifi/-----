@@ -21,6 +21,7 @@ import { applyCardAppearance } from '../utils/appearance'
 import { copyText } from '../utils/clipboard'
 import { compressImage } from '../utils/image'
 import ConfirmDialog from './ConfirmDialog'
+import FriendsSection from './FriendsSection'
 
 type SettingsPanelProps = {
   open: boolean
@@ -33,6 +34,14 @@ type SettingsPanelProps = {
     username: string | null
     email: string | null
     onLogout: () => void
+  } | null
+  /** 云同步状态；没登录传 null */
+  sync?: {
+    status: 'off' | 'idle' | 'pulling' | 'pushing' | 'offline' | 'error'
+    message: string | null
+    pending: boolean
+    lastSyncedAt: number | null
+    onPull: () => void
   } | null
 }
 
@@ -49,6 +58,22 @@ const NOTICE_MS = 2600
 
 /** 破坏性操作的防抖窗口：这段时间内重复触发只算一次 */
 const DESTRUCTIVE_GUARD_MS = 400
+
+/** 同步状态一句话描述。出错时具体原因由调用方另外显示。 */
+function syncLabel(sync: NonNullable<SettingsPanelProps['sync']>): string {
+  switch (sync.status) {
+    case 'pulling':
+      return '正在从云端读取…'
+    case 'pushing':
+      return '正在上传…'
+    case 'offline':
+      return '离线中，联网后会自动上传'
+    case 'error':
+      return '同步出错'
+    default:
+      return sync.pending ? '有改动待上传' : '已同步'
+  }
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -234,12 +259,14 @@ export default function SettingsPanel({
   data,
   update,
   account = null,
+  sync = null,
 }: SettingsPanelProps) {
   const { settings } = data
 
   const [quoteDraft, setQuoteDraft] = useState('')
   const [notice, setNotice] = useState<string | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
+  const [confirmPull, setConfirmPull] = useState(false)
   /** 已经解析好、等着二次确认的导入数据 */
   const [pendingImport, setPendingImport] = useState<AppData | null>(null)
   /** 复制失败时把卡片文字摆出来，供手动长按复制 */
@@ -507,27 +534,59 @@ export default function SettingsPanel({
         {/* 账号（只有登录后才显示） */}
         {account !== null && (
           <Section title="账号">
-            <div className="card flex items-center justify-between gap-3 px-4 py-3">
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-[14px] text-ink">
-                  {account.username ?? '未命名'}
-                </span>
-                <span className="truncate text-[12px] text-muted">
-                  {account.email ?? '—'}
-                </span>
+            <div className="card flex flex-col gap-3 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-[14px] text-ink">
+                    {account.username ?? '未命名'}
+                  </span>
+                  <span className="truncate text-[12px] text-muted">
+                    {account.email ?? '—'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={account.onLogout}
+                  className="inline-flex min-h-11 shrink-0 items-center rounded-card border
+                    border-line bg-white px-3 text-[13px] text-danger transition-colors
+                    duration-200 active:bg-surface"
+                >
+                  退出登录
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={account.onLogout}
-                className="inline-flex min-h-11 shrink-0 items-center rounded-card border
-                  border-line bg-white px-3 text-[13px] text-danger transition-colors
-                  duration-200 active:bg-surface"
-              >
-                退出登录
-              </button>
+
+              {sync !== null && (
+                <div className="flex flex-col gap-2 border-t border-line pt-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span
+                      className={`text-[12px] ${
+                        sync.status === 'error' ? 'text-danger' : 'text-muted'
+                      }`}
+                    >
+                      {syncLabel(sync)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmPull(true)}
+                      disabled={sync.status === 'pulling' || sync.status === 'pushing'}
+                      className="inline-flex min-h-11 shrink-0 items-center rounded-card border
+                        border-line bg-white px-3 text-[13px] text-ink transition-colors
+                        duration-200 active:bg-surface disabled:opacity-40"
+                    >
+                      从云端覆盖本地
+                    </button>
+                  </div>
+                  {sync.status === 'error' && sync.message !== null && (
+                    <p className="text-[12px] text-danger">{sync.message}</p>
+                  )}
+                </div>
+              )}
             </div>
           </Section>
         )}
+
+        {/* 好友（只有登录后才显示） */}
+        {account !== null && <FriendsSection active={open} />}
 
         {/* 考试 */}
         <Section title="考试">
@@ -884,6 +943,19 @@ export default function SettingsPanel({
           </div>
         </Section>
       </aside>
+
+      {sync !== null && confirmPull && (
+        <ConfirmDialog
+          title="用云端覆盖本地？"
+          description="本机的任务、签到记录、设置和徽章会被云端数据整个替换掉。如果本机有还没上传成功的改动，会丢失。"
+          confirmText="覆盖本地"
+          onCancel={() => setConfirmPull(false)}
+          onConfirm={() => {
+            setConfirmPull(false)
+            sync.onPull()
+          }}
+        />
+      )}
 
       {confirmClear && (
         <ConfirmDialog
