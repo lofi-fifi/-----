@@ -17,6 +17,8 @@ export type CloudSnapshot = {
   settings: Record<string, unknown> | null
   badges: unknown[] | null
   dayTotals: Record<string, number> | null
+  /** 日记。挂在 user_settings 上的一列 jsonb，整体读写 */
+  diaries: unknown[] | null
   taskCount: number
   checkinCount: number
 }
@@ -58,7 +60,12 @@ export async function pullCloud(userId: string): Promise<CloudSnapshot | null> {
     const tasks = (taskResult.data ?? []) as TaskRow[]
     const checkins = (checkinResult.data ?? []) as CheckinRow[]
     const row = settingsResult.data as
-      | { settings: Record<string, unknown> | null; badges: unknown[] | null; day_totals: Record<string, number> | null }
+      | {
+          settings: Record<string, unknown> | null
+          badges: unknown[] | null
+          day_totals: Record<string, number> | null
+          diaries: unknown[] | null
+        }
       | null
 
     return {
@@ -67,6 +74,8 @@ export async function pullCloud(userId: string): Promise<CloudSnapshot | null> {
       settings: row?.settings ?? null,
       badges: row?.badges ?? null,
       dayTotals: row?.day_totals ?? null,
+      // 老数据还没有这一列时不报错，按「云端没有日记」处理
+      diaries: Array.isArray(row?.diaries) ? row.diaries : null,
       taskCount: tasks.length,
       checkinCount: checkins.length,
     }
@@ -154,6 +163,36 @@ export async function pushSettings(userId: string, data: AppData): Promise<SyncO
         settings: data.settings,
         badges: data.badges,
         day_totals: data.dayTotals,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' },
+    )
+
+    if (error) return failure(error.message)
+    return { ok: true }
+  } catch (error) {
+    return failure(error instanceof Error ? error.message : String(error))
+  }
+}
+
+/**
+ * 推送日记。
+ *
+ * 又是单独一个函数、单独一个指纹 —— 和 pushSettings 分开的理由一样：
+ * 只更新 diaries 这一列，不去碰可能塞着几兆背景图的 settings 列。
+ *
+ * 顺带一提：`user_settings` 的 RLS 是「只有自己可见」，
+ * 所以日记天然不会给好友看到，不需要额外配置。
+ */
+export async function pushDiaries(userId: string, data: AppData): Promise<SyncOutcome> {
+  const supabase = getSupabase()
+  if (!supabase) return failure('没有配置 Supabase')
+
+  try {
+    const { error } = await supabase.from('user_settings').upsert(
+      {
+        user_id: userId,
+        diaries: data.diaries,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id' },

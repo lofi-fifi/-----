@@ -1,8 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { rowsToCheckins, rowsToTasks, isEmptyCloud, settingsFingerprint, tasksFingerprint } from '../lib/sync'
+import {
+  diariesFingerprint,
+  isEmptyCloud,
+  rowsToCheckins,
+  rowsToTasks,
+  settingsFingerprint,
+  tasksFingerprint,
+} from '../lib/sync'
 import { normalizeData, type AppData } from '../lib/storage'
-import { pullCloud, pushSettings, pushTasks, type SyncOutcome } from '../utils/supabaseSync'
+import {
+  pullCloud,
+  pushDiaries,
+  pushSettings,
+  pushTasks,
+  type SyncOutcome,
+} from '../utils/supabaseSync'
 
 /**
  * 这台设备为「哪个账号」做过首次同步。
@@ -79,6 +92,7 @@ export function useSync({ userId, data, replace }: Params): SyncState & { pullNo
   const ready = useRef(false)
   const lastTasks = useRef('')
   const lastSettings = useRef('')
+  const lastDiaries = useRef('')
   const timer = useRef<number | null>(null)
 
   const pushNow = useCallback(async (): Promise<SyncOutcome | null> => {
@@ -87,10 +101,12 @@ export function useSync({ userId, data, replace }: Params): SyncState & { pullNo
     const snapshot = dataRef.current
     const taskPrint = tasksFingerprint(snapshot)
     const settingsPrint = settingsFingerprint(snapshot)
+    const diariesPrint = diariesFingerprint(snapshot)
     const needTasks = taskPrint !== lastTasks.current
     const needSettings = settingsPrint !== lastSettings.current
+    const needDiaries = diariesPrint !== lastDiaries.current
 
-    if (!needTasks && !needSettings) {
+    if (!needTasks && !needSettings && !needDiaries) {
       setPending(false)
       return { ok: true }
     }
@@ -107,6 +123,12 @@ export function useSync({ userId, data, replace }: Params): SyncState & { pullNo
     if (needSettings) {
       const result = await pushSettings(userId, snapshot)
       if (result.ok) lastSettings.current = settingsPrint
+      else failure = failure ?? result
+    }
+
+    if (needDiaries) {
+      const result = await pushDiaries(userId, snapshot)
+      if (result.ok) lastDiaries.current = diariesPrint
       else failure = failure ?? result
     }
 
@@ -137,6 +159,7 @@ export function useSync({ userId, data, replace }: Params): SyncState & { pullNo
       ready.current = true
       lastTasks.current = tasksFingerprint(dataRef.current)
       lastSettings.current = settingsFingerprint(dataRef.current)
+      lastDiaries.current = diariesFingerprint(dataRef.current)
       setStatus('idle')
       return
     }
@@ -161,14 +184,17 @@ export function useSync({ userId, data, replace }: Params): SyncState & { pullNo
 
       if (cloudEmpty) {
         // 云端还没有内容（新账号 / 换设备第一次用）→ 把本机传上去
-        const taskResult = await pushTasks(userId, dataRef.current)
-        const settingsResult = await pushSettings(userId, dataRef.current)
+        const results = [
+          await pushTasks(userId, dataRef.current),
+          await pushSettings(userId, dataRef.current),
+          await pushDiaries(userId, dataRef.current),
+        ]
         if (!alive) return
 
-        if (!taskResult.ok || !settingsResult.ok) {
-          const bad = taskResult.ok ? settingsResult : taskResult
-          setStatus(bad.ok || bad.offline ? 'offline' : 'error')
-          setMessage(bad.ok ? null : bad.message)
+        const bad = results.find((result) => !result.ok)
+        if (bad) {
+          setStatus(bad.offline ? 'offline' : 'error')
+          setMessage(bad.message)
           setPending(true)
           return
         }
@@ -177,6 +203,7 @@ export function useSync({ userId, data, replace }: Params): SyncState & { pullNo
         ready.current = true
         lastTasks.current = tasksFingerprint(dataRef.current)
         lastSettings.current = settingsFingerprint(dataRef.current)
+        lastDiaries.current = diariesFingerprint(dataRef.current)
         setStatus('idle')
         setLastSyncedAt(Date.now())
         return
@@ -189,9 +216,9 @@ export function useSync({ userId, data, replace }: Params): SyncState & { pullNo
         badges: cloud.badges ?? [],
         dayTotals: cloud.dayTotals ?? {},
         settings: cloud.settings ?? dataRef.current.settings,
-        // 日记目前只存在本地，云端没有这份数据。
-        // 不显式带过来的话，normalizeData 会把它补成空数组 —— 等于一次同步就把日记清空了。
-        diaries: dataRef.current.diaries,
+        // 日记存在 user_settings.diaries 那一列里（第四轮 SQL 加的）。
+        // 云端为 null 时说明那台设备还没写过日记，这时保留本机的。
+        diaries: cloud.diaries ?? dataRef.current.diaries,
       })
 
       replaceRef.current(next)
@@ -200,6 +227,7 @@ export function useSync({ userId, data, replace }: Params): SyncState & { pullNo
       // 用 next 而不是 dataRef.current —— 后者这一帧还是旧值
       lastTasks.current = tasksFingerprint(next)
       lastSettings.current = settingsFingerprint(next)
+      lastDiaries.current = diariesFingerprint(next)
       setStatus('idle')
       setPending(false)
       setMessage(null)
@@ -217,7 +245,14 @@ export function useSync({ userId, data, replace }: Params): SyncState & { pullNo
 
     const taskPrint = tasksFingerprint(data)
     const settingsPrint = settingsFingerprint(data)
-    if (taskPrint === lastTasks.current && settingsPrint === lastSettings.current) return
+    const diariesPrint = diariesFingerprint(data)
+    if (
+      taskPrint === lastTasks.current &&
+      settingsPrint === lastSettings.current &&
+      diariesPrint === lastDiaries.current
+    ) {
+      return
+    }
 
     setPending(true)
     if (timer.current !== null) window.clearTimeout(timer.current)
@@ -271,9 +306,9 @@ export function useSync({ userId, data, replace }: Params): SyncState & { pullNo
       badges: cloud.badges ?? [],
       dayTotals: cloud.dayTotals ?? {},
       settings: cloud.settings ?? dataRef.current.settings,
-      // 日记目前只存在本地，云端没有这份数据。
-      // 不显式带过来的话，normalizeData 会把它补成空数组 —— 等于一次同步就把日记清空了。
-      diaries: dataRef.current.diaries,
+      // 日记存在 user_settings.diaries 那一列里（第四轮 SQL 加的）。
+      // 云端为 null 时说明那台设备还没写过日记，这时保留本机的。
+      diaries: cloud.diaries ?? dataRef.current.diaries,
     })
 
     replaceRef.current(next)
@@ -281,6 +316,7 @@ export function useSync({ userId, data, replace }: Params): SyncState & { pullNo
     ready.current = true
     lastTasks.current = tasksFingerprint(next)
     lastSettings.current = settingsFingerprint(next)
+    lastDiaries.current = diariesFingerprint(next)
     setStatus('idle')
     setPending(false)
     setLastSyncedAt(Date.now())

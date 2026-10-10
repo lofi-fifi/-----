@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   checkinsToRows,
+  diariesFingerprint,
   isEmptyCloud,
   rowsToCheckins,
   rowsToTasks,
@@ -213,5 +214,77 @@ describe('变更指纹', () => {
     const before = settingsFingerprint(data)
     data.settings.background.images = ['data:image/jpeg;base64,' + 'A'.repeat(100) + 'YYYY']
     expect(settingsFingerprint(data)).not.toBe(before)
+  })
+})
+
+
+describe('diariesFingerprint（第三个指纹）', () => {
+  const withDiary = () => {
+    const data = withTasks()
+    data.diaries = [
+      { id: 'd1', date: '2026-10-08', mood: 'good', content: '今天做了三套卷子', createdAt: 1, updatedAt: 1 },
+    ]
+    return data
+  }
+
+  it('加一篇日记 -> 日记指纹变', () => {
+    const before = withTasks()
+    expect(diariesFingerprint(withDiary())).not.toBe(diariesFingerprint(before))
+  })
+
+  it('同样的日记 -> 指纹一样', () => {
+    expect(diariesFingerprint(withDiary())).toBe(diariesFingerprint(withDiary()))
+  })
+
+  it('改日记正文 -> 指纹变', () => {
+    const a = withDiary()
+    const b = withDiary()
+    b.diaries[0].content = '改过了'
+    expect(diariesFingerprint(a)).not.toBe(diariesFingerprint(b))
+  })
+
+  it('删掉日记 -> 指纹变', () => {
+    const a = withDiary()
+    const b = withDiary()
+    b.diaries = []
+    expect(diariesFingerprint(a)).not.toBe(diariesFingerprint(b))
+  })
+
+  // 这三条是关键：写日记绝不能触发设置（可能带 2MB 背景图）或任务重传
+  it('写日记不影响任务指纹', () => {
+    expect(tasksFingerprint(withDiary())).toBe(tasksFingerprint(withTasks()))
+  })
+
+  it('写日记不影响设置指纹', () => {
+    expect(settingsFingerprint(withDiary())).toBe(settingsFingerprint(withTasks()))
+  })
+
+  it('改设置不影响日记指纹', () => {
+    const a = withDiary()
+    const b = withDiary()
+    b.settings.examName = '换个名字'
+    expect(diariesFingerprint(a)).toBe(diariesFingerprint(b))
+  })
+
+  it('加任务不影响日记指纹', () => {
+    const a = withDiary()
+    const b = withDiary()
+    b.tasks['2026-10-08'].push({ id: 'z', text: '新任务', done: false, seconds: 0, createdAt: 9 })
+    expect(diariesFingerprint(a)).toBe(diariesFingerprint(b))
+  })
+
+  it('三个指纹两两独立：日记 / 任务 / 设置互不干扰', () => {
+    const base = withTasks()
+    const diary = withDiary()
+    const task = withTasks()
+    task.tasks['2026-10-08'].push({ id: 'z', text: '新', done: false, seconds: 0, createdAt: 9 })
+    const conf = withTasks()
+    conf.settings.examName = 'x'
+
+    expect(diariesFingerprint(base)).toBe(diariesFingerprint(task))
+    expect(diariesFingerprint(base)).toBe(diariesFingerprint(conf))
+    expect(tasksFingerprint(base)).toBe(tasksFingerprint(conf))
+    expect(settingsFingerprint(base)).toBe(settingsFingerprint(task))
+    expect(diariesFingerprint(diary)).not.toBe(diariesFingerprint(base))
   })
 })

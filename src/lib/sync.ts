@@ -163,3 +163,13 @@ export function settingsFingerprint(data: AppData): string {
     },
   })
 }
+
+/**
+ * 日记指纹。这是第三个独立指纹。
+ *
+ * 为什么不并进 settingsFingerprint：设置里可能塞着上兆的背景图 Base64，
+ * 写一篇日记不该把那些重传一遍。
+ */
+export function diariesFingerprint(data: AppData): string {
+  return JSON.stringify(data.diaries)
+}
