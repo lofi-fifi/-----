@@ -189,6 +189,9 @@ export function useSync({ userId, data, replace }: Params): SyncState & { pullNo
         badges: cloud.badges ?? [],
         dayTotals: cloud.dayTotals ?? {},
         settings: cloud.settings ?? dataRef.current.settings,
+        // 日记目前只存在本地，云端没有这份数据。
+        // 不显式带过来的话，normalizeData 会把它补成空数组 —— 等于一次同步就把日记清空了。
+        diaries: dataRef.current.diaries,
       })
 
       replaceRef.current(next)
@@ -268,6 +271,9 @@ export function useSync({ userId, data, replace }: Params): SyncState & { pullNo
       badges: cloud.badges ?? [],
       dayTotals: cloud.dayTotals ?? {},
       settings: cloud.settings ?? dataRef.current.settings,
+      // 日记目前只存在本地，云端没有这份数据。
+      // 不显式带过来的话，normalizeData 会把它补成空数组 —— 等于一次同步就把日记清空了。
+      diaries: dataRef.current.diaries,
     })
 
     replaceRef.current(next)

@@ -231,3 +231,86 @@ describe('looksLikeAppData', () => {
     expect(looksLikeAppData('abc')).toBe(false)
   })
 })
+
+describe('normalizeData —— 日记', () => {
+  const good = {
+    id: 'd1',
+    date: '2026-10-09',
+    mood: 'good',
+    content: '今天做了三套卷子',
+    createdAt: 1000,
+    updatedAt: 2000,
+  }
+
+  it('旧数据没有 diaries 字段 -> 补成空数组（向后兼容）', () => {
+    expect(normalizeData({}).diaries).toEqual([])
+    expect(normalizeData({ tasks: {} }).diaries).toEqual([])
+    expect(normalizeData({ settings: { theme: 'dark' } }).diaries).toEqual([])
+  })
+
+  it('合法条目原样保留', () => {
+    expect(normalizeData({ diaries: [good] }).diaries).toEqual([good])
+  })
+
+  it('日期不合法的丢掉', () => {
+    const data = normalizeData({
+      diaries: [good, { ...good, id: 'd2', date: '不是日期' }, { ...good, id: 'd3', date: '2026-02-30' }],
+    })
+    expect(data.diaries.map((d) => d.id)).toEqual(['d1'])
+  })
+
+  it('正文是空的丢掉（误触保存留下的垃圾）', () => {
+    const data = normalizeData({
+      diaries: [good, { ...good, id: 'd2', content: '' }, { ...good, id: 'd3', content: '   \n  ' }],
+    })
+    expect(data.diaries.map((d) => d.id)).toEqual(['d1'])
+  })
+
+  it('缺 id 就补一个，而不是整条丢掉 —— 内容比 id 值钱', () => {
+    const data = normalizeData({ diaries: [{ ...good, id: undefined }] })
+    expect(data.diaries).toHaveLength(1)
+    expect(data.diaries[0].id).toBeTruthy()
+    expect(data.diaries[0].content).toBe(good.content)
+  })
+
+  it('id 重复只留一条', () => {
+    const data = normalizeData({ diaries: [good, { ...good, content: '重复 id 的另一篇' }] })
+    expect(data.diaries).toHaveLength(1)
+    expect(data.diaries[0].content).toBe(good.content)
+  })
+
+  it('未知 mood 也保留原值（以后加档不会把老数据洗掉）', () => {
+    const data = normalizeData({ diaries: [{ ...good, mood: 'future-mood' }] })
+    expect(data.diaries[0].mood).toBe('future-mood')
+  })
+
+  it('mood 缺失 / 非字符串 -> 空串', () => {
+    expect(normalizeData({ diaries: [{ ...good, mood: undefined }] }).diaries[0].mood).toBe('')
+    expect(normalizeData({ diaries: [{ ...good, mood: 42 }] }).diaries[0].mood).toBe('')
+  })
+
+  it('updatedAt 缺失时用 createdAt 兜底', () => {
+    const data = normalizeData({ diaries: [{ ...good, updatedAt: undefined }] })
+    expect(data.diaries[0].updatedAt).toBe(1000)
+  })
+
+  it('两个时间戳都非法时不崩', () => {
+    const data = normalizeData({ diaries: [{ ...good, createdAt: 'x', updatedAt: null }] })
+    expect(Number.isFinite(data.diaries[0].createdAt)).toBe(true)
+    expect(Number.isFinite(data.diaries[0].updatedAt)).toBe(true)
+  })
+
+  it('不是数组 -> 空数组', () => {
+    for (const value of [null, undefined, 'abc', 42, {}]) {
+      expect(normalizeData({ diaries: value }).diaries).toEqual([])
+    }
+  })
+
+  it('数组里混了非对象 -> 跳过', () => {
+    expect(normalizeData({ diaries: [good, null, 'x', 42] }).diaries).toHaveLength(1)
+  })
+
+  it('looksLikeAppData 认得出只有 diaries 的备份', () => {
+    expect(looksLikeAppData({ diaries: [] })).toBe(true)
+  })
+})

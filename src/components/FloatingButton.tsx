@@ -9,7 +9,7 @@ type FloatingButtonProps = {
 export default function FloatingButton({ onClick }: FloatingButtonProps) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30">
-      <div className="mx-auto flex w-full max-w-[480px] justify-end px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <div className="mx-auto flex w-full max-w-[480px] justify-end px-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
         <button
           type="button"
           onClick={onClick}

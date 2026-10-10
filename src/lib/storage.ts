@@ -41,6 +41,22 @@ export type Badge = {
   streak: number // 获得时的连续天数
 }
 
+/**
+ * 一篇日记。
+ *
+ * 纯手动书写，没有任何 AI 生成 —— 就是一段文字加一个心情标记。
+ */
+export type Diary = {
+  id: string
+  /** 日记归属的日期，YYYY-MM-DD（本地时区） */
+  date: string
+  /** 心情标识，取自 lib/diary.ts 的 MOODS；空串表示没选 */
+  mood: string
+  content: string
+  createdAt: number
+  updatedAt: number
+}
+
 /* ------------------------------------------------------------------ */
 /* 背景设置                                                            */
 /* ------------------------------------------------------------------ */
@@ -126,6 +142,8 @@ export type AppData = {
   badges: Badge[]
   /** 番茄钟里「不关联任务」的专注秒数，key = "2026-10-07" */
   dayTotals: Record<string, number>
+  /** 日记。按写入顺序存放，显示时再排序 */
+  diaries: Diary[]
   settings: Settings
 }
 
@@ -154,6 +172,7 @@ export function createDefaultData(): AppData {
     checkins: [],
     badges: [],
     dayTotals: {},
+    diaries: [],
     settings: {
       ...DEFAULT_SETTINGS,
       customQuotes: [],
@@ -374,6 +393,44 @@ function normalizeDayTotals(raw: unknown): Record<string, number> {
   return result
 }
 
+/**
+ * 日记。
+ *
+ * 丢掉「没有正文」和「日期不合法」的条目 —— 前者是误触保存留下的垃圾，
+ * 后者的日期会被原样发给 Postgres 的 date 列（以后日记也要同步的话）。
+ * id 缺失就地补一个，不要整条丢：内容比 id 值钱。
+ */
+function normalizeDiaries(raw: unknown): Diary[] {
+  if (!Array.isArray(raw)) return []
+
+  const seen = new Set<string>()
+  const result: Diary[] = []
+
+  for (const item of raw) {
+    if (!isRecord(item)) continue
+    if (!isValidDateKey(item.date)) continue
+
+    const content = asString(item.content, '')
+    if (!content.trim()) continue
+
+    const id = asString(item.id, '').trim() || createId()
+    if (seen.has(id)) continue
+    seen.add(id)
+
+    const createdAt = asNumber(item.createdAt, Date.now())
+    result.push({
+      id,
+      date: item.date,
+      mood: asString(item.mood, '').trim(),
+      content,
+      createdAt,
+      updatedAt: asNumber(item.updatedAt, createdAt),
+    })
+  }
+
+  return result
+}
+
 function isBackgroundPresetId(value: unknown): value is BackgroundPresetId {
   return (
     value === 'blueGray' || value === 'pinkPurple' || value === 'mint' || value === 'white'
@@ -446,7 +503,7 @@ function normalizeSettings(raw: unknown): Settings {
  */
 export function looksLikeAppData(value: unknown): boolean {
   if (!isRecord(value)) return false
-  return ['tasks', 'checkins', 'badges', 'dayTotals', 'settings'].some(
+  return ['tasks', 'checkins', 'badges', 'dayTotals', 'diaries', 'settings'].some(
     (key) => key in value,
   )
 }
@@ -464,6 +521,7 @@ export function normalizeData(raw: unknown): AppData {
     checkins: normalizeCheckins(raw.checkins),
     badges: normalizeBadges(raw.badges),
     dayTotals: normalizeDayTotals(raw.dayTotals),
+    diaries: normalizeDiaries(raw.diaries),
     settings: normalizeSettings(raw.settings),
   }
 }

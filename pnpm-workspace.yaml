@@ -4,7 +4,13 @@
 #   pnpm 默认的 isolated 链接方式要创建真实符号链接，在本机被系统拒绝
 #   （EPERM: operation not permitted, symlink），安装会以
 #   ERR_PNPM_SYMLINK_FAILED 失败。改成扁平化的 hoisted 结构即可正常安装。
+#
+# storeDir: .pnpm-store
+#   把依赖仓库固定在项目目录里。不写的话，pnpm 会去找全局仓库
+#   （%LOCALAPPDATA%\pnpm\store），和现有的 node_modules 对不上，
+#   每次跑 pnpm 命令都会想清空重装一遍。
 packages:
   - '.'
 
 nodeLinker: hoisted
+storeDir: .pnpm-store
