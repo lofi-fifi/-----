@@ -75,6 +75,27 @@ export function deleteDiary(list: Diary[], id: string): Diary[] {
 }
 
 /**
+ * 合并两边的日记：按 id 去重，`updatedAt` 大的赢。
+ *
+ * **为什么日记可以合并、任务不行**：
+ *   两者都有 id 和 updatedAt，但任务还有「删除」这个动作 ——
+ *   单纯按 id 合并会把删掉的任务复活（没有墓碑就分不清「从没同步过」和「已经删了」）。
+ *   日记不需要纠结这个：同一篇 id 一定来自同一台设备，按更新时间取新的就是对的。
+ *
+ * 所以两台设备各写各的日记，合并之后**两篇都在**。
+ */
+export function mergeDiaries(local: Diary[], cloud: Diary[]): Diary[] {
+  const byId = new Map<string, Diary>()
+
+  for (const item of [...local, ...cloud]) {
+    const existing = byId.get(item.id)
+    if (!existing || item.updatedAt > existing.updatedAt) byId.set(item.id, item)
+  }
+
+  return [...byId.values()]
+}
+
+/**
  * 日期标签。靠近的日期给一个相对说法，但**一定跟上绝对日期** ——
  * 只写「今天」，过几天回头看就不知道是哪天写的了。
  *

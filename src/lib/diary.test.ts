@@ -8,6 +8,7 @@ import {
   diaryDateLabel,
   excerpt,
   moodEmoji,
+  mergeDiaries,
   moodLabel,
   sortDiaries,
   updateDiary,
@@ -170,5 +171,54 @@ describe('diaryDateLabel', () => {
 
   it('今天参数默认取当天，不传也不崩', () => {
     expect(diaryDateLabel('2020-01-01')).toContain('2020年')
+  })
+})
+
+describe('mergeDiaries（两台设备各写各的）', () => {
+  const a = diary({ id: 'a', date: '2026-10-09', content: '电脑写的', updatedAt: 100 })
+  const b = diary({ id: 'b', date: '2026-10-08', content: '手机写的', updatedAt: 200 })
+
+  it('两边各写一篇 -> 合并后两篇都在', () => {
+    const merged = mergeDiaries([a], [b])
+    expect(merged).toHaveLength(2)
+    expect(merged.map((d) => d.id).sort()).toEqual(['a', 'b'])
+  })
+
+  it('同一篇 id 冲突 -> updatedAt 大的赢（后改的）', () => {
+    const older = diary({ id: 'x', date: '2026-10-09', content: '旧内容', updatedAt: 100 })
+    const newer = diary({ id: 'x', date: '2026-10-09', content: '新内容', updatedAt: 900 })
+
+    expect(mergeDiaries([older], [newer])[0].content).toBe('新内容')
+    // 反过来也应该是同一篇，跟参数顺序无关
+    expect(mergeDiaries([newer], [older])[0].content).toBe('新内容')
+  })
+
+  it('内容一样、更新时间也一样 -> 只留一条（不会翻倍）', () => {
+    expect(mergeDiaries([a], [a])).toHaveLength(1)
+  })
+
+  it('一边为空 -> 等于另一边', () => {
+    expect(mergeDiaries([], [a, b])).toHaveLength(2)
+    expect(mergeDiaries([a, b], [])).toHaveLength(2)
+    expect(mergeDiaries([], [])).toEqual([])
+  })
+
+  it('不修改传进来的数组（React 靠引用判断变化）', () => {
+    const local = [a]
+    const cloud = [b]
+    mergeDiaries(local, cloud)
+    expect(local).toHaveLength(1)
+    expect(cloud).toHaveLength(1)
+  })
+
+  it('本地删了一篇、云端还留着 -> 合并会把它带回来（已知取舍）', () => {
+    // 日记没有墓碑，分不清「没同步过」和「删了」。宁可多一篇，也不要丢内容。
+    expect(mergeDiaries([], [a])).toHaveLength(1)
+  })
+
+  it('多轮合并是幂等的（合并两次结果一样）', () => {
+    const once = mergeDiaries([a], [b])
+    const twice = mergeDiaries(once, [a, b])
+    expect(twice).toHaveLength(2)
   })
 })

@@ -400,7 +400,7 @@ function normalizeDayTotals(raw: unknown): Record<string, number> {
  * 后者的日期会被原样发给 Postgres 的 date 列（以后日记也要同步的话）。
  * id 缺失就地补一个，不要整条丢：内容比 id 值钱。
  */
-function normalizeDiaries(raw: unknown): Diary[] {
+export function normalizeDiaries(raw: unknown): Diary[] {
   if (!Array.isArray(raw)) return []
 
   const seen = new Set<string>()
