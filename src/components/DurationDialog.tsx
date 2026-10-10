@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { formatDuration } from '../lib/time'
+import Portal from './Portal'
 
 type DurationDialogProps = {
   taskText: string
@@ -49,12 +50,13 @@ export default function DurationDialog({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="补录时长"
-      className="fixed inset-0 z-60 flex items-center justify-center px-5"
-    >
+    <Portal>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="补录时长"
+        className="fixed inset-0 z-60 flex items-center justify-center px-5"
+      >
       <div
         aria-hidden="true"
         onClick={onCancel}
@@ -101,6 +103,7 @@ export default function DurationDialog({
           </button>
         </div>
       </form>
-    </div>
+      </div>
+    </Portal>
   )
 }

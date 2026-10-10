@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 
+import Portal from './Portal'
 import { playDing, unlockAudio, vibrate } from '../utils/feedback'
 import {
   BADGE_META,
@@ -168,7 +169,7 @@ export default function CheckinSection({ data, update }: CheckinSectionProps) {
       </ul>
 
       {openMeta && (
-        <>
+        <Portal>
           <div
             aria-hidden="true"
             className="fixed inset-0 z-40"
@@ -196,7 +197,7 @@ export default function CheckinSection({ data, update }: CheckinSectionProps) {
               ))}
             </ul>
           </div>
-        </>
+        </Portal>
       )}
     </section>
   )

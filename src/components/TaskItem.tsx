@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import type { Task } from '../lib/storage'
 import { formatDuration } from '../lib/time'
+import Portal from './Portal'
 
 type TaskItemProps = {
   task: Task
@@ -220,7 +221,7 @@ export default function TaskItem({
       </div>
 
       {menuOpen && (
-        <>
+        <Portal>
           {/* 点击空白处关闭 */}
           <div
             aria-hidden="true"
@@ -273,7 +274,7 @@ export default function TaskItem({
               删除
             </button>
           </div>
-        </>
+        </Portal>
       )}
     </li>
   )
