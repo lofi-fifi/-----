@@ -13,9 +13,9 @@
 
 ---
 
-| 主界面 | 深色模式 | 好友 |
-|---|---|---|
-| ![主界面](docs/home.jpg) | ![深色模式](docs/dark.jpg) | ![好友](docs/friends.jpg) |
+| 主界面 | 日记 | 深色模式 | 好友 |
+|---|---|---|---|
+| ![主界面](docs/home.jpg) | ![日记](docs/diary.jpg) | ![深色模式](docs/dark.jpg) | ![好友](docs/friends.jpg) |
 
 ## 功能
 
