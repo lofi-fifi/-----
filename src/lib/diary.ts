@@ -66,25 +66,57 @@ export function addDiary(list: Diary[], diary: Diary): Diary[] {
 }
 
 export function updateDiary(list: Diary[], id: string, patch: Partial<Diary>): Diary[] {
-  return list.map((item) => (item.id === id ? { ...item, ...patch, updatedAt: Date.now() } : item))
+  return list.map((item) => {
+    if (item.id !== id) return item
+    // 编辑一篇（理论上不该打开）已删除的日记时，顺手把墓碑摘掉 —— 有意编辑就该复活
+    const { deletedAt: _removed, ...alive } = item
+    return { ...alive, ...patch, updatedAt: Date.now() }
+  })
 }
 
-/** 按 id 删掉一篇 */
+/**
+ * 删除一篇 —— **立墓碑，不是从数组里拿掉**。
+ *
+ * 直接从数组里删掉的话，另一台设备同步上来时会把它**复活**：
+ * 合并逻辑只看到「云端有、本地没有」，分不清这是「本地没同步过」还是「本地删了」。
+ * 打上 deletedAt 并刷新 updatedAt，它就能在合并时正当地赢过旧版本。
+ */
 export function deleteDiary(list: Diary[], id: string): Diary[] {
-  return list.filter((item) => item.id !== id)
+  const now = Date.now()
+  return list.map((item) =>
+    item.id === id ? { ...item, deletedAt: now, updatedAt: now } : item,
+  )
+}
+
+/** 还活着的日记（滤掉墓碑）—— 界面显示和计数都用它，不要直接用 data.diaries */
+export function activeDiaries(list: Diary[]): Diary[] {
+  return list.filter((item) => !item.deletedAt)
+}
+
+/**
+ * 墓碑保留 90 天。
+ * 够覆盖「另一台设备放了很久没开」的情况，又不至于让数组无限长下去。
+ */
+const TOMBSTONE_TTL_MS = 90 * 24 * 60 * 60 * 1000
+
+/** 清掉过期的墓碑 */
+export function pruneTombstones(list: Diary[], now = Date.now()): Diary[] {
+  return list.filter((item) => !item.deletedAt || now - item.deletedAt < TOMBSTONE_TTL_MS)
 }
 
 /**
  * 合并两边的日记：按 id 去重，`updatedAt` 大的赢。
  *
- * **为什么日记可以合并、任务不行**：
- *   两者都有 id 和 updatedAt，但任务还有「删除」这个动作 ——
- *   单纯按 id 合并会把删掉的任务复活（没有墓碑就分不清「从没同步过」和「已经删了」）。
- *   日记不需要纠结这个：同一篇 id 一定来自同一台设备，按更新时间取新的就是对的。
+ * 规则很简单：**同一个 id 取 updatedAt 大的那个**。
  *
- * 所以两台设备各写各的日记，合并之后**两篇都在**。
+ * 因为删除是「立墓碑」而不是「从数组里拿掉」，墓碑也照常参与比较 ——
+ * 所以「电脑删了、手机还留着旧的」这种情况，墓碑更新，它就赢，删除得以传播。
+ * 反过来，如果手机在电脑删之后又编辑了那篇（updatedAt 更大），编辑就会赢，
+ * 日记重新出现。这也符合直觉：**最后动手的那台说了算**。
+ *
+ * 合并完顺手清掉过期的墓碑，免得数组无限长。
  */
-export function mergeDiaries(local: Diary[], cloud: Diary[]): Diary[] {
+export function mergeDiaries(local: Diary[], cloud: Diary[], now = Date.now()): Diary[] {
   const byId = new Map<string, Diary>()
 
   for (const item of [...local, ...cloud]) {
@@ -92,7 +124,7 @@ export function mergeDiaries(local: Diary[], cloud: Diary[]): Diary[] {
     if (!existing || item.updatedAt > existing.updatedAt) byId.set(item.id, item)
   }
 
-  return [...byId.values()]
+  return pruneTombstones([...byId.values()], now)
 }
 
 /**

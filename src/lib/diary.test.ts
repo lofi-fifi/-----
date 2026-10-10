@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   MOODS,
+  activeDiaries,
   addDiary,
   createDiary,
   deleteDiary,
@@ -10,6 +11,7 @@ import {
   moodEmoji,
   mergeDiaries,
   moodLabel,
+  pruneTombstones,
   sortDiaries,
   updateDiary,
 } from './diary'
@@ -138,10 +140,29 @@ describe('增删改', () => {
     expect(next[0].content).toBe(base[0].content)
   })
 
-  it('deleteDiary 按 id 删除', () => {
+  it('deleteDiary 是立墓碑，不是从数组里拿掉', () => {
     const list = [diary({ id: 'a', date: '2026-10-09' }), diary({ id: 'b', date: '2026-10-08' })]
-    expect(deleteDiary(list, 'a').map((d) => d.id)).toEqual(['b'])
-    expect(deleteDiary(list, 'nope')).toHaveLength(2)
+    const after = deleteDiary(list, 'a')
+
+    // 数组长度不变 —— 墓碑必须留着，否则另一台设备同步上来会把它复活
+    expect(after).toHaveLength(2)
+    expect(after.find((d) => d.id === 'a')?.deletedAt).toBeGreaterThan(0)
+    // 但界面上已经看不到它
+    expect(activeDiaries(after).map((d) => d.id)).toEqual(['b'])
+    // 没删的那篇不受影响
+    expect(after.find((d) => d.id === 'b')?.deletedAt).toBeUndefined()
+  })
+
+  it('deleteDiary 刷新 updatedAt，这样墓碑才能赢过旧版本', () => {
+    const list = [diary({ id: 'a', date: '2026-10-09', updatedAt: 100 })]
+    expect(deleteDiary(list, 'a')[0].updatedAt).toBeGreaterThan(100)
+  })
+
+  it('updateDiary 会摘掉墓碑（有意编辑就该复活）', () => {
+    const deleted = deleteDiary([diary({ id: 'a', date: '2026-10-09' })], 'a')
+    const revived = updateDiary(deleted, 'a', { content: '又想起来了' })
+    expect(revived[0].deletedAt).toBeUndefined()
+    expect(activeDiaries(revived)).toHaveLength(1)
   })
 })
 
@@ -211,14 +232,76 @@ describe('mergeDiaries（两台设备各写各的）', () => {
     expect(cloud).toHaveLength(1)
   })
 
-  it('本地删了一篇、云端还留着 -> 合并会把它带回来（已知取舍）', () => {
-    // 日记没有墓碑，分不清「没同步过」和「删了」。宁可多一篇，也不要丢内容。
-    expect(mergeDiaries([], [a])).toHaveLength(1)
+  it('电脑删了、手机还留着旧版本 -> 删除传播过去，不会再冒出来', () => {
+    // 电脑：a 被删（立了更新的墓碑）；手机：还是原来那篇活着的 a
+    const tomb = deleteDiary([a], 'a')[0]
+    const merged = mergeDiaries([tomb], [a])
+
+    expect(merged).toHaveLength(1)
+    expect(merged[0].deletedAt).toBeGreaterThan(0)
+    expect(activeDiaries(merged)).toHaveLength(0)
+  })
+
+  it('反过来：删完之后另一台又编辑了 -> 编辑赢，日记复活', () => {
+    // 墓碑 updatedAt = 1000，之后手机编辑到 2000
+    const tomb = { ...a, deletedAt: 1000, updatedAt: 1000 }
+    const edited = { ...a, content: '删完又写了点东西', updatedAt: 2000 }
+    const merged = mergeDiaries([tomb], [edited])
+
+    expect(merged[0].deletedAt).toBeUndefined()
+    expect(merged[0].content).toBe('删完又写了点东西')
+    expect(activeDiaries(merged)).toHaveLength(1)
+  })
+
+  it('墓碑参与合并，不会因为另一边没有就消失', () => {
+    const tomb = deleteDiary([a], 'a')[0]
+    // 云端完全没有这篇（比如还没同步过墓碑）—— 墓碑仍然留着
+    expect(mergeDiaries([tomb], [])).toHaveLength(1)
+    expect(mergeDiaries([tomb], [])[0].deletedAt).toBeGreaterThan(0)
   })
 
   it('多轮合并是幂等的（合并两次结果一样）', () => {
     const once = mergeDiaries([a], [b])
     const twice = mergeDiaries(once, [a, b])
     expect(twice).toHaveLength(2)
+  })
+})
+
+describe('pruneTombstones / activeDiaries', () => {
+  const NOW = 1_700_000_000_000
+  const DAY = 24 * 60 * 60 * 1000
+
+  it('90 天内的墓碑留着', () => {
+    const list = [diary({ id: 'a', date: '2026-10-09', deletedAt: NOW - 30 * DAY })]
+    expect(pruneTombstones(list, NOW)).toHaveLength(1)
+  })
+
+  it('超过 90 天的墓碑清掉（数组不能无限长）', () => {
+    const list = [
+      diary({ id: 'old', date: '2026-10-09', deletedAt: NOW - 91 * DAY }),
+      diary({ id: 'new', date: '2026-10-09', deletedAt: NOW - 1 * DAY }),
+    ]
+    expect(pruneTombstones(list, NOW).map((d) => d.id)).toEqual(['new'])
+  })
+
+  it('活着的日记永远不清', () => {
+    const list = [diary({ id: 'a', date: '2026-10-09' })]
+    expect(pruneTombstones(list, NOW)).toHaveLength(1)
+  })
+
+  it('合并时会顺手清掉过期墓碑', () => {
+    const stale = diary({ id: 'old', date: '2026-10-09', deletedAt: NOW - 200 * DAY })
+    const fresh = diary({ id: 'new', date: '2026-10-08' })
+    // 传 NOW 进去，不然用的是真实时间
+    expect(mergeDiaries([stale], [fresh], NOW).map((d) => d.id)).toEqual(['new'])
+  })
+
+  it('activeDiaries 只滤显示，不改原数组', () => {
+    const list = [
+      diary({ id: 'a', date: '2026-10-09' }),
+      diary({ id: 'b', date: '2026-10-08', deletedAt: 123 }),
+    ]
+    expect(activeDiaries(list)).toHaveLength(1)
+    expect(list).toHaveLength(2)
   })
 })

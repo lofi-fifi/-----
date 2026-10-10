@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import {
   MOOD_PLACEHOLDER,
+  activeDiaries,
   addDiary,
   createDiary,
   deleteDiary,
@@ -32,7 +33,8 @@ type EditorState = Diary | 'new' | null
 export default function DiaryPage({ data, update, today }: DiaryPageProps) {
   const [editor, setEditor] = useState<EditorState>(null)
 
-  const diaries = sortDiaries(data.diaries)
+  // 一定要过滤墓碑 —— data.diaries 里还留着已删除的日记（那是同步用的痕迹）
+  const diaries = sortDiaries(activeDiaries(data.diaries))
 
   function handleSave(values: { date: string; mood: string; content: string }) {
     if (editor === 'new') {

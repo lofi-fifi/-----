@@ -55,6 +55,16 @@ export type Diary = {
   content: string
   createdAt: number
   updatedAt: number
+  /**
+   * 删除标记（墓碑）。有值表示这篇已经删了。
+   *
+   * **为什么不直接从数组里删掉**：删掉之后没有任何痕迹，
+   * 另一台设备同步上来时，合并逻辑分不清「这篇从没同步过」和「这篇被删了」，
+   * 于是会把它**复活**。留个墓碑，合并时比 updatedAt 就行。
+   *
+   * 墓碑不会永远留着 —— mergeDiaries 里会清掉 90 天前的。
+   */
+  deletedAt?: number
 }
 
 /* ------------------------------------------------------------------ */
@@ -411,7 +421,9 @@ export function normalizeDiaries(raw: unknown): Diary[] {
     if (!isValidDateKey(item.date)) continue
 
     const content = asString(item.content, '')
-    if (!content.trim()) continue
+    const deletedAt = asNumber(item.deletedAt, 0)
+    // 活着的日记必须有正文；墓碑允许正文为空（删的时候可能已经清掉了）
+    if (!content.trim() && !deletedAt) continue
 
     const id = asString(item.id, '').trim() || createId()
     if (seen.has(id)) continue
@@ -425,6 +437,7 @@ export function normalizeDiaries(raw: unknown): Diary[] {
       content,
       createdAt,
       updatedAt: asNumber(item.updatedAt, createdAt),
+      ...(deletedAt ? { deletedAt } : {}),
     })
   }
 
